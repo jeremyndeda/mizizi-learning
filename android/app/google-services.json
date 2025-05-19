@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "698490038984",
+    "project_id": "mizizi-learning",
+    "storage_bucket": "mizizi-learning.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:698490038984:android:8793306236611a963053fd",
+        "android_client_info": {
+          "package_name": "com.example.my_first_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB2uQZKyjNj6Ru0SHjKugaCDyuSc6flJio"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
