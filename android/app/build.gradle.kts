@@ -7,6 +7,7 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
 import java.util.Properties
 import java.io.FileInputStream
 
@@ -16,11 +17,12 @@ val keystoreProperties = Properties().apply {
         load(FileInputStream(keystorePropertiesFile))
     }
 }
+
 android {
     namespace = "com.example.my_first_app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
-   
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -31,23 +33,13 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.my_first_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
-    buildTypes {
-    getByName("release") {
-        isMinifyEnabled = false
-        isShrinkResources = false
-        proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
-    }
-}
     signingConfigs {
         create("release") {
             keyAlias = keystoreProperties.getProperty("keyAlias")
@@ -56,7 +48,15 @@ android {
             storePassword = keystoreProperties.getProperty("storePassword")
         }
     }
-    
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
+            signingConfig signingConfigs.release
+        }
+    }
 }
 
 flutter {
