@@ -90,6 +90,43 @@ class FirestoreService {
         });
   }
 
+  // Get inventory items by date range
+  Future<List<InventoryItem>> getInventoryByDateRange(
+    DateTime start,
+    DateTime end,
+  ) async {
+    final snapshot =
+        await _firestore
+            .collection('inventory')
+            .where(
+              'createdAt',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(start),
+            )
+            .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(end))
+            .get();
+    return snapshot.docs
+        .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
+        .toList();
+  }
+
+  // Get inventory items by specific date
+  Future<List<InventoryItem>> getInventoryByDate(DateTime date) async {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(Duration(days: 1));
+    final snapshot =
+        await _firestore
+            .collection('inventory')
+            .where(
+              'createdAt',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+            )
+            .where('createdAt', isLessThan: Timestamp.fromDate(endOfDay))
+            .get();
+    return snapshot.docs
+        .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
+        .toList();
+  }
+
   // Add notification
   Future<void> addNotification(NotificationModel notification) async {
     await _firestore
@@ -104,6 +141,7 @@ class FirestoreService {
         .collection('notifications')
         .where('userId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
+        .limit(50)
         .snapshots()
         .map((snapshot) {
           return snapshot.docs

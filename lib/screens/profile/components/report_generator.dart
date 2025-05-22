@@ -53,9 +53,8 @@ class _ReportGeneratorState extends State<ReportGenerator> {
 
       // Generate PDF file
       final file = await _pdfService.generateInventoryReport(
-        filteredItems,
-        user?.name ?? user?.email ?? 'User',
-        _dateRange ?? DateTimeRange(start: DateTime(2020), end: DateTime.now()),
+        userId: widget.userId,
+        dateRange: _dateRange,
       );
 
       // Share the PDF file using share_plus
