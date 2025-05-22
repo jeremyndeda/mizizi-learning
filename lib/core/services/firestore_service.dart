@@ -23,11 +23,27 @@ class FirestoreService {
     }, SetOptions(merge: true));
   }
 
-  // Get user data
+  // Get user data by UID
   Future<UserModel?> getUser(String uid) async {
     final doc = await _firestore.collection('users').doc(uid).get();
     if (doc.exists) {
       return UserModel.fromMap(doc.data()!, uid);
+    }
+    return null;
+  }
+
+  // Get user by email
+  Future<UserModel?> getUserByEmail(String email) async {
+    final querySnapshot =
+        await _firestore
+            .collection('users')
+            .where('email', isEqualTo: email)
+            .get();
+    if (querySnapshot.docs.isNotEmpty) {
+      return UserModel.fromMap(
+        querySnapshot.docs.first.data(),
+        querySnapshot.docs.first.id,
+      );
     }
     return null;
   }
@@ -101,18 +117,5 @@ class FirestoreService {
     await _firestore.collection('notifications').doc(id).update({
       'isRead': true,
     });
-  }
-
-  Future<String?> getUserLocation(String userId) async {
-    try {
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      if (userDoc.exists) {
-        return userDoc.data()?['location'] as String?;
-      }
-      return null;
-    } catch (e) {
-      print('Error fetching user location: $e');
-      return null;
-    }
   }
 }

@@ -22,6 +22,7 @@ class AddEditItemScreen extends StatefulWidget {
 class _AddEditItemScreenState extends State<AddEditItemScreen> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _locationController = TextEditingController();
   final _amountController = TextEditingController();
   String? _condition = 'Good';
   String _category = 'Stationery';
@@ -57,6 +58,7 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
 
       _nameController.text = widget.item!.name;
       _descriptionController.text = widget.item!.description ?? '';
+      _locationController.text = widget.item!.location ?? '';
       _amountController.text = widget.item!.amount.toString();
       _condition = widget.item!.condition;
       _category = widget.item!.category;
@@ -71,20 +73,17 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
 
   void _saveItem() async {
     final amount = int.tryParse(_amountController.text.trim()) ?? 1;
-    // Fetch the owner's location dynamically
-    final ownerLocation = await _firestoreService.getUserLocation(
-      widget.userId,
-    );
-
+    final currentUser = _authService.currentUser!;
     final item = InventoryItem(
       id: widget.item?.id ?? const Uuid().v4(),
       name: _nameController.text.trim(),
       condition: _requiresCondition() ? _condition : null,
       category: _category,
       userId: widget.userId,
+      userEmail: currentUser.email!, // Explicitly set owner email
       createdAt: DateTime.now(),
       description: _descriptionController.text.trim(),
-      location: ownerLocation, // Set the location dynamically
+      location: _locationController.text.trim(),
       amount: amount,
     );
 
@@ -128,6 +127,11 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
             CustomTextField(
               controller: _descriptionController,
               labelText: 'Description',
+            ),
+            const SizedBox(height: 16),
+            CustomTextField(
+              controller: _locationController,
+              labelText: 'Location',
             ),
             const SizedBox(height: 16),
             CustomTextField(
@@ -211,6 +215,7 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _locationController.dispose();
     _amountController.dispose();
     super.dispose();
   }

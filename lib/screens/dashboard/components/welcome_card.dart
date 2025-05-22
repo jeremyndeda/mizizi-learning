@@ -13,6 +13,18 @@ class WelcomeCard extends StatelessWidget {
     required this.onNotificationsTap,
   });
 
+  /// Extracts a formatted name from the email.
+  String _nameFromEmail(String email) {
+    final localPart = email.split('@').first;
+    final parts = localPart.split('.');
+    return parts
+        .map((part) {
+          if (part.isEmpty) return '';
+          return part[0].toUpperCase() + part.substring(1).toLowerCase();
+        })
+        .join(' ');
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
@@ -23,6 +35,11 @@ class WelcomeCard extends StatelessWidget {
         }
 
         final user = snapshot.data;
+        final displayName =
+            user.name?.isNotEmpty == true
+                ? user.name
+                : _nameFromEmail(user.email);
+
         return Card(
           elevation: 3,
           shape: RoundedRectangleBorder(
@@ -37,7 +54,7 @@ class WelcomeCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Welcome, ${user.name ?? user.email}!',
+                      'Welcome, $displayName!',
                       style: AppTypography.heading2,
                     ),
                     const SizedBox(height: 4),

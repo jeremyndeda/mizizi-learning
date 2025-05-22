@@ -3,14 +3,13 @@ import '../constants/colors.dart';
 import '../constants/typography.dart';
 import '../models/inventory_item.dart';
 import '../services/auth_service.dart';
-import '../services/firestore_service.dart';
-import '../services/notification_service.dart';
 
 class InventoryCard extends StatelessWidget {
   final InventoryItem item;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onRequestRepair;
+  final VoidCallback onIssue;
   final Widget? child;
 
   const InventoryCard({
@@ -19,94 +18,9 @@ class InventoryCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onRequestRepair,
+    required this.onIssue,
     this.child,
   });
-
-  void _issueItem(BuildContext context) async {
-    final TextEditingController issueController = TextEditingController();
-    final FirestoreService firestoreService = FirestoreService();
-    final NotificationService notificationService = NotificationService();
-    final currentUserId = AuthService().currentUser?.uid;
-
-    showDialog(
-      context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: const Text('Issue Item'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Current Amount: ${item.amount}'),
-                TextField(
-                  controller: issueController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Quantity to Issue',
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  final quantityToIssue =
-                      int.tryParse(issueController.text) ?? 0;
-                  if (quantityToIssue <= 0 || quantityToIssue > item.amount) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter a valid quantity.'),
-                        backgroundColor: AppColors.errorRed,
-                      ),
-                    );
-                    return;
-                  }
-
-                  final newAmount = item.amount - quantityToIssue;
-                  if (newAmount <= 0) {
-                    // Delete the item if amount reaches 0
-                    await firestoreService.deleteInventoryItem(item.id);
-                    await notificationService.sendInventoryNotification(
-                      currentUserId!,
-                      'Item Issued and Removed',
-                      'Item ${item.name} has been fully issued and removed from your inventory.',
-                    );
-                  } else {
-                    // Update the item with the new amount
-                    final updatedItem = InventoryItem(
-                      id: item.id,
-                      name: item.name,
-                      condition: item.condition,
-                      category: item.category,
-                      userId: item.userId,
-                      userEmail: item.userEmail,
-                      createdAt: item.createdAt,
-                      description: item.description,
-                      location: item.location,
-                      amount: newAmount,
-                    );
-                    await firestoreService.updateInventoryItem(
-                      item.id,
-                      updatedItem.toMap(),
-                    );
-                    await notificationService.sendInventoryNotification(
-                      currentUserId!,
-                      'Item Issued',
-                      'Issued $quantityToIssue of ${item.name}. Remaining: $newAmount.',
-                    );
-                  }
-
-                  Navigator.pop(dialogContext);
-                },
-                child: const Text('Issue'),
-              ),
-            ],
-          ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -129,10 +43,18 @@ class InventoryCard extends StatelessWidget {
             Text(item.name, style: AppTypography.heading2),
             const SizedBox(height: 8),
             Text('Amount: ${item.amount}', style: AppTypography.bodyText),
-            Text('Condition: ${item.condition}', style: AppTypography.bodyText),
+            if (item.condition != null)
+              Text(
+                'Condition: ${item.condition}',
+                style: AppTypography.bodyText,
+              ),
             Text('Category: ${item.category}', style: AppTypography.bodyText),
             if (item.location != null)
               Text('Location: ${item.location}', style: AppTypography.bodyText),
+            Text(
+              'Owner: ${item.userEmail ?? 'Unknown'}',
+              style: AppTypography.bodyText,
+            ), // Display owner email
             if (child != null) ...[const SizedBox(height: 8), child!],
             const SizedBox(height: 12),
             Row(
@@ -150,17 +72,7 @@ class InventoryCard extends StatelessWidget {
                   tooltip:
                       isOwner ? 'Delete' : 'You can only delete your own items',
                 ),
-                if (isOwner) // Show "Issue Item" button only for the owner
-                  ElevatedButton(
-                    onPressed: () => _issueItem(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryGreen,
-                      foregroundColor: AppColors.white,
-                    ),
-                    child: const Text('Issue Item'),
-                  ),
-                if (!nonRepairableCategories.contains(item.category) &&
-                    !isOwner)
+                if (!nonRepairableCategories.contains(item.category))
                   ElevatedButton(
                     onPressed: onRequestRepair,
                     style: ElevatedButton.styleFrom(
@@ -168,6 +80,15 @@ class InventoryCard extends StatelessWidget {
                       foregroundColor: AppColors.white,
                     ),
                     child: const Text('Request/Repair'),
+                  ),
+                if (isOwner && item.amount > 0)
+                  ElevatedButton(
+                    onPressed: onIssue,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen,
+                      foregroundColor: AppColors.white,
+                    ),
+                    child: const Text('Issue'),
                   ),
               ],
             ),
