@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import '../constants/colors.dart';
 
 class CustomTextField extends StatelessWidget {
-  final String labelText;
   final TextEditingController controller;
+  final String labelText;
   final bool obscureText;
+  final TextInputType? keyboardType; // Add this parameter
 
   const CustomTextField({
     super.key,
-    required this.labelText,
     required this.controller,
+    required this.labelText,
     this.obscureText = false,
+    this.keyboardType,
   });
 
   @override
@@ -17,18 +20,19 @@ class CustomTextField extends StatelessWidget {
     return TextField(
       controller: controller,
       obscureText: obscureText,
+      keyboardType: keyboardType, // Use the parameter here
       decoration: InputDecoration(
         labelText: labelText,
-        labelStyle: const TextStyle(color: Color(0xFF6A8D73)),
+        labelStyle: const TextStyle(color: AppColors.primaryGreen),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF6A8D73)),
+          borderSide: const BorderSide(color: AppColors.primaryGreen),
         ),
       ),
     );

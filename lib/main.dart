@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'core/constants/colors.dart';
+import 'core/constants/typography.dart';
+import 'screens/auth/login_screen.dart';
 import 'firebase_options.dart';
-import 'screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,20 +19,18 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Mizizi Learning Hub',
       theme: ThemeData(
-        primaryColor: const Color(0xFF6A8D73),
-        scaffoldBackgroundColor: const Color(0xFFF9F2E8),
+        primaryColor: AppColors.primaryGreen,
+        scaffoldBackgroundColor: AppColors.primaryBackground,
         textTheme: const TextTheme(
-          headlineLarge: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF6A8D73),
-          ),
-          bodyMedium: TextStyle(fontSize: 16, color: Color(0xFF6A8D73)),
+          displayLarge: AppTypography.heading1,
+          displayMedium: AppTypography.heading2,
+          bodyLarge: AppTypography.bodyText,
+          bodySmall: AppTypography.caption,
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6A8D73),
-            foregroundColor: Colors.white,
+            backgroundColor: AppColors.primaryGreen,
+            foregroundColor: AppColors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),

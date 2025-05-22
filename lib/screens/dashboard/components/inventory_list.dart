@@ -1,0 +1,205 @@
+import 'package:flutter/material.dart';
+import '../../../core/constants/typography.dart';
+import '../../../core/models/inventory_item.dart';
+import '../../../core/services/firestore_service.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../core/widgets/inventory_card.dart';
+import '../../../core/widgets/filter_chip.dart';
+import '../../inventory/add_edit_item_screen.dart';
+import '../../inventory/request_repair_screen.dart';
+
+class InventoryList extends StatefulWidget {
+  final String userId;
+
+  const InventoryList({super.key, required this.userId});
+
+  @override
+  _InventoryListState createState() => _InventoryListState();
+}
+
+class _InventoryListState extends State<InventoryList> {
+  final FirestoreService _firestoreService = FirestoreService();
+  final NotificationService _notificationService = NotificationService();
+  String? _selectedUserFilter;
+  String? _selectedCategoryFilter;
+  String? _selectedConditionFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Inventory Overview', style: AppTypography.heading2),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              CustomFilterChip(
+                label: 'All Users',
+                isSelected: _selectedUserFilter == null,
+                onSelected: () => setState(() => _selectedUserFilter = null),
+              ),
+              const SizedBox(width: 8),
+              CustomFilterChip(
+                label: 'My Items',
+                isSelected: _selectedUserFilter == widget.userId,
+                onSelected:
+                    () => setState(() => _selectedUserFilter = widget.userId),
+              ),
+              const SizedBox(width: 8),
+              CustomFilterChip(
+                label: 'Stationery',
+                isSelected: _selectedCategoryFilter == 'Stationery',
+                onSelected:
+                    () =>
+                        setState(() => _selectedCategoryFilter = 'Stationery'),
+              ),
+              const SizedBox(width: 8),
+              CustomFilterChip(
+                label: 'Sanitary Items',
+                isSelected: _selectedCategoryFilter == 'Sanitary Items',
+                onSelected:
+                    () => setState(
+                      () => _selectedCategoryFilter = 'Sanitary Items',
+                    ),
+              ),
+              const SizedBox(width: 8),
+              CustomFilterChip(
+                label: 'Electronics',
+                isSelected: _selectedCategoryFilter == 'Electronics',
+                onSelected:
+                    () =>
+                        setState(() => _selectedCategoryFilter = 'Electronics'),
+              ),
+              const SizedBox(width: 8),
+              CustomFilterChip(
+                label: 'Furniture',
+                isSelected: _selectedCategoryFilter == 'Furniture',
+                onSelected:
+                    () => setState(() => _selectedCategoryFilter = 'Furniture'),
+              ),
+              const SizedBox(width: 8),
+              CustomFilterChip(
+                label: 'Kids Toys',
+                isSelected: _selectedCategoryFilter == 'Kids Toys',
+                onSelected:
+                    () => setState(() => _selectedCategoryFilter = 'Kids Toys'),
+              ),
+              const SizedBox(width: 8),
+              CustomFilterChip(
+                label: 'Accessories',
+                isSelected: _selectedCategoryFilter == 'Accessories',
+                onSelected:
+                    () =>
+                        setState(() => _selectedCategoryFilter = 'Accessories'),
+              ),
+              const SizedBox(width: 8),
+              CustomFilterChip(
+                label: 'Good',
+                isSelected: _selectedConditionFilter == 'Good',
+                onSelected:
+                    () => setState(() => _selectedConditionFilter = 'Good'),
+              ),
+              const SizedBox(width: 8),
+              CustomFilterChip(
+                label: 'Needs Repair',
+                isSelected: _selectedConditionFilter == 'Needs Repair',
+                onSelected:
+                    () => setState(
+                      () => _selectedConditionFilter = 'Needs Repair',
+                    ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        StreamBuilder<List<InventoryItem>>(
+          stream: _firestoreService.getAllInventory(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            var items = snapshot.data!;
+            if (_selectedUserFilter != null) {
+              items =
+                  items
+                      .where((item) => item.userId == _selectedUserFilter)
+                      .toList();
+            }
+            if (_selectedCategoryFilter != null) {
+              items =
+                  items
+                      .where((item) => item.category == _selectedCategoryFilter)
+                      .toList();
+            }
+            if (_selectedConditionFilter != null) {
+              items =
+                  items
+                      .where(
+                        (item) => item.condition == _selectedConditionFilter,
+                      )
+                      .toList();
+            }
+
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: items.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => AddEditItemScreen(userId: widget.userId),
+                        ),
+                      );
+                    },
+                    child: const Text('Add New Item'),
+                  );
+                }
+
+                final item = items[index - 1];
+                return InventoryCard(
+                  item: item,
+                  onEdit: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (_) => AddEditItemScreen(
+                              userId: widget.userId,
+                              item: item,
+                            ),
+                      ),
+                    );
+                  },
+                  onDelete: () async {
+                    await _firestoreService.deleteInventoryItem(item.id);
+                    await _notificationService.sendInventoryNotification(
+                      widget.userId,
+                      'Item Deleted',
+                      'Item ${item.name} has been deleted.',
+                    );
+                  },
+                  onRequestRepair: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RequestRepairScreen(item: item),
+                      ),
+                    );
+                  },
+                );
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
