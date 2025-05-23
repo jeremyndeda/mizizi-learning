@@ -1,5 +1,3 @@
-// ignore_for_file: unused_field
-
 import 'package:flutter/material.dart';
 import '../../core/constants/colors.dart';
 import '../../core/services/auth_service.dart';
@@ -11,8 +9,8 @@ import '../notifications/notifications_screen.dart';
 import 'components/welcome_card.dart';
 import 'components/navigation_card.dart';
 import 'components/inventory_list.dart';
-import '../inventory/all_inventory_screen.dart';
 import '../inventory/user_inventory_screen.dart';
+import '../inventory/all_inventory_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -74,25 +72,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDashboard() {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            WelcomeCard(
-              userId: _authService.currentUser!.uid,
-              onNotificationsTap: () {
-                setState(() {
-                  _selectedIndex = 1;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            Row(
+    return FutureBuilder<String>(
+      future: _authService.getUserRole(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final role = snapshot.data ?? 'user';
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: NavigationCard(
+                WelcomeCard(
+                  userId: _authService.currentUser!.uid,
+                  onNotificationsTap: () {
+                    setState(() {
+                      _selectedIndex = 1;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                if (role == 'admin') ...[
+                  NavigationCard(
                     title: 'All Inventory',
                     icon: Icons.inventory,
                     onTap: () {
@@ -104,63 +107,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       );
                     },
                   ),
+                  const SizedBox(height: 16),
+                ],
+                NavigationCard(
+                  title: 'My Inventory',
+                  icon: Icons.person,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const UserInventoryScreen(),
+                      ),
+                    );
+                  },
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: NavigationCard(
-                    title: 'My Inventory',
-                    icon: Icons.person,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const UserInventoryScreen(),
-                        ),
-                      );
-                    },
-                  ),
+                const SizedBox(height: 16),
+                NavigationCard(
+                  title: 'Reports',
+                  icon: Icons.report,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProfileScreen(onLogout: _logout),
+                      ),
+                    );
+                  },
                 ),
+                const SizedBox(height: 24),
+                InventoryList(userId: _authService.currentUser!.uid),
               ],
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: NavigationCard(
-                    title: 'Reports',
-                    icon: Icons.report,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProfileScreen(onLogout: _logout),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: NavigationCard(
-                    title: 'Assets',
-                    icon: Icons.category,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AllInventoryScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            InventoryList(userId: _authService.currentUser!.uid),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

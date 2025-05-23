@@ -1,10 +1,24 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+//import '../models/user_model.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Get current user
   User? get currentUser => _auth.currentUser;
+
+  // Get current user's role
+  Future<String> getUserRole() async {
+    if (currentUser == null) return 'user';
+    final doc =
+        await _firestore.collection('users').doc(currentUser!.uid).get();
+    if (doc.exists) {
+      return doc.data()?['role'] ?? 'user';
+    }
+    return 'user';
+  }
 
   // Login with email and password
   Future<UserCredential> login(String email, String password) async {

@@ -6,7 +6,7 @@ import '../models/notification_model.dart';
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Save user to Firestore
+  // Save user to Firestore (always writes or updates)
   Future<void> sendUserToFirestore(
     String uid,
     String email, {
@@ -21,6 +21,21 @@ class FirestoreService {
       'name': name,
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  // ✅ NEW: Save only if user doesn't already exist
+  Future<void> sendUserToFirestoreIfNotExists(String uid, String email) async {
+    final docRef = _firestore.collection('users').doc(uid);
+    final doc = await docRef.get();
+
+    if (!doc.exists) {
+      await docRef.set({
+        'uid': uid,
+        'email': email,
+        'role': 'user',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
   }
 
   // Get user data by UID
@@ -53,22 +68,19 @@ class FirestoreService {
     await _firestore.collection('users').doc(uid).update(data);
   }
 
-  // Add inventory item
+  // Inventory Management
   Future<void> addInventoryItem(InventoryItem item) async {
     await _firestore.collection('inventory').doc(item.id).set(item.toMap());
   }
 
-  // Update inventory item
   Future<void> updateInventoryItem(String id, Map<String, dynamic> data) async {
     await _firestore.collection('inventory').doc(id).update(data);
   }
 
-  // Delete inventory item
   Future<void> deleteInventoryItem(String id) async {
     await _firestore.collection('inventory').doc(id).delete();
   }
 
-  // Get all inventory items
   Stream<List<InventoryItem>> getAllInventory() {
     return _firestore.collection('inventory').snapshots().map((snapshot) {
       return snapshot.docs
@@ -77,7 +89,6 @@ class FirestoreService {
     });
   }
 
-  // Get user inventory items
   Stream<List<InventoryItem>> getUserInventory(String userId) {
     return _firestore
         .collection('inventory')
@@ -90,7 +101,6 @@ class FirestoreService {
         });
   }
 
-  // Get inventory items by date range
   Future<List<InventoryItem>> getInventoryByDateRange(
     DateTime start,
     DateTime end,
@@ -104,12 +114,12 @@ class FirestoreService {
             )
             .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(end))
             .get();
+
     return snapshot.docs
         .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
         .toList();
   }
 
-  // Get inventory items by specific date
   Future<List<InventoryItem>> getInventoryByDate(DateTime date) async {
     final startOfDay = DateTime(date.year, date.month, date.day);
     final endOfDay = startOfDay.add(Duration(days: 1));
@@ -122,12 +132,13 @@ class FirestoreService {
             )
             .where('createdAt', isLessThan: Timestamp.fromDate(endOfDay))
             .get();
+
     return snapshot.docs
         .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
         .toList();
   }
 
-  // Add notification
+  // Notifications
   Future<void> addNotification(NotificationModel notification) async {
     await _firestore
         .collection('notifications')
@@ -135,7 +146,6 @@ class FirestoreService {
         .set(notification.toMap());
   }
 
-  // Get user notifications
   Stream<List<NotificationModel>> getUserNotifications(String userId) {
     return _firestore
         .collection('notifications')
@@ -150,7 +160,6 @@ class FirestoreService {
         });
   }
 
-  // Mark notification as read
   Future<void> markNotificationAsRead(String id) async {
     await _firestore.collection('notifications').doc(id).update({
       'isRead': true,

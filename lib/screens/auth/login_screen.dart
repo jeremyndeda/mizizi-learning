@@ -38,7 +38,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final user = credential.user;
       if (user != null) {
-        await _firestoreService.sendUserToFirestore(user.uid, user.email!);
+        // Ensure we only create Firestore document if it doesn't exist
+        await _firestoreService.sendUserToFirestoreIfNotExists(
+          user.uid,
+          user.email!,
+        );
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const DashboardScreen()),

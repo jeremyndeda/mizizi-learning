@@ -80,7 +80,7 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
       condition: _requiresCondition() ? _condition : null,
       category: _category,
       userId: widget.userId,
-      userEmail: currentUser.email!, // Explicitly set owner email
+      userEmail: currentUser.email!,
       createdAt: DateTime.now(),
       description: _descriptionController.text.trim(),
       location: _locationController.text.trim(),
@@ -184,6 +184,7 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
                     'Furniture',
                     'Kids Toys',
                     'Accessories',
+                    'Food Items',
                     'Other',
                   ].map((category) {
                     return DropdownMenuItem(
