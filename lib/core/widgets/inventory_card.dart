@@ -6,38 +6,30 @@ import '../services/auth_service.dart';
 
 class InventoryCard extends StatelessWidget {
   final InventoryItem item;
+  final String currentUserRole;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final VoidCallback onRequestRepair;
   final VoidCallback onIssue;
   final Widget? child;
 
   const InventoryCard({
     super.key,
     required this.item,
+    required this.currentUserRole,
     required this.onEdit,
     required this.onDelete,
-    required this.onRequestRepair,
     required this.onIssue,
     this.child,
   });
 
   @override
   Widget build(BuildContext context) {
-    const List<String> nonRepairableCategories = [
-      'Kids Toys',
-      'Sanitary Items',
-      'Stationery',
-      'Food Items',
-    ];
-    final currentUserId = AuthService().currentUser?.uid;
-    final isOwner = currentUserId == item.userId;
+    final isOwner = AuthService().currentUser?.uid == item.userId;
+    final canIssue = currentUserRole == 'admin' || currentUserRole == 'care';
 
     return Container(
-      width: double.infinity, // Ensure full width
-      constraints: const BoxConstraints(
-        maxWidth: 600,
-      ), // Limit for larger screens
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 600),
       child: Card(
         elevation: 3,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -83,16 +75,7 @@ class InventoryCard extends StatelessWidget {
                             ? 'Delete'
                             : 'You can only delete your own items',
                   ),
-                  if (!nonRepairableCategories.contains(item.category))
-                    ElevatedButton(
-                      onPressed: onRequestRepair,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.secondaryGreen,
-                        foregroundColor: AppColors.white,
-                      ),
-                      child: const Text('Request/Repair'),
-                    ),
-                  if (isOwner && item.amount > 0)
+                  if (canIssue && isOwner && item.amount > 0)
                     ElevatedButton(
                       onPressed: onIssue,
                       style: ElevatedButton.styleFrom(

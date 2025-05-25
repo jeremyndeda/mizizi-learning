@@ -2,11 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/inventory_item.dart';
 import '../models/user_model.dart';
 import '../models/notification_model.dart';
+import '../models/item_request.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Save user to Firestore (always writes or updates)
+  // Save user to Firestore
   Future<void> sendUserToFirestore(
     String uid,
     String email, {
@@ -23,18 +24,16 @@ class FirestoreService {
     }, SetOptions(merge: true));
   }
 
-  // ✅ NEW: Save only if user doesn't already exist
-  Future<void> sendUserToFirestoreIfNotExists(String uid, String email) async {
-    final docRef = _firestore.collection('users').doc(uid);
-    final doc = await docRef.get();
-
-    if (!doc.exists) {
-      await docRef.set({
-        'uid': uid,
-        'email': email,
-        'role': 'user',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+  // Send user to Firestore if not already there
+  Future<void> sendUserToFirestoreIfNotExists(
+    String uid,
+    String email, {
+    String? name,
+    String role = 'user',
+  }) async {
+    final userDoc = await _firestore.collection('users').doc(uid).get();
+    if (!userDoc.exists) {
+      await sendUserToFirestore(uid, email, name: name, role: role);
     }
   }
 
@@ -54,11 +53,10 @@ class FirestoreService {
             .collection('users')
             .where('email', isEqualTo: email)
             .get();
+
     if (querySnapshot.docs.isNotEmpty) {
-      return UserModel.fromMap(
-        querySnapshot.docs.first.data(),
-        querySnapshot.docs.first.id,
-      );
+      final doc = querySnapshot.docs.first;
+      return UserModel.fromMap(doc.data(), doc.id);
     }
     return null;
   }
@@ -68,7 +66,8 @@ class FirestoreService {
     await _firestore.collection('users').doc(uid).update(data);
   }
 
-  // Inventory Management
+  // ---------------- Inventory ----------------
+
   Future<void> addInventoryItem(InventoryItem item) async {
     await _firestore.collection('inventory').doc(item.id).set(item.toMap());
   }
@@ -94,11 +93,12 @@ class FirestoreService {
         .collection('inventory')
         .where('userId', isEqualTo: userId)
         .snapshots()
-        .map((snapshot) {
-          return snapshot.docs
-              .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
-              .toList();
-        });
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
+                  .toList(),
+        );
   }
 
   Future<List<InventoryItem>> getInventoryByDateRange(
@@ -122,7 +122,8 @@ class FirestoreService {
 
   Future<List<InventoryItem>> getInventoryByDate(DateTime date) async {
     final startOfDay = DateTime(date.year, date.month, date.day);
-    final endOfDay = startOfDay.add(Duration(days: 1));
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
     final snapshot =
         await _firestore
             .collection('inventory')
@@ -138,7 +139,104 @@ class FirestoreService {
         .toList();
   }
 
-  // Notifications
+  Future<InventoryItem?> getItemById(String id) async {
+    final doc = await _firestore.collection('inventory').doc(id).get();
+    if (doc.exists) {
+      return InventoryItem.fromMap(doc.data()!, id);
+    }
+    return null;
+  }
+
+  Future<InventoryItem?> getItemByName(String name) async {
+    final snapshot =
+        await _firestore
+            .collection('inventory')
+            .where('name', isEqualTo: name)
+            .limit(1)
+            .get();
+
+    if (snapshot.docs.isNotEmpty) {
+      final doc = snapshot.docs.first;
+      return InventoryItem.fromMap(doc.data(), doc.id);
+    }
+    return null;
+  }
+
+  Future<List<String>> getAllInventoryItemNames() async {
+    final snapshot = await _firestore.collection('inventory').get();
+    return snapshot.docs
+        .map((doc) => (doc.data()['name'] ?? '').toString())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList();
+  }
+
+  // ---------------- Item Requests ----------------
+
+  Future<void> addItemRequest(ItemRequest request) async {
+    await _firestore
+        .collection('item_requests')
+        .doc(request.id)
+        .set(request.toMap());
+  }
+
+  Stream<List<ItemRequest>> getAllItemRequests() {
+    return _firestore.collection('item_requests').snapshots().map((snapshot) {
+      return snapshot.docs
+          .map((doc) => ItemRequest.fromMap(doc.data(), doc.id))
+          .toList();
+    });
+  }
+
+  Future<List<ItemRequest>> getFilteredItemRequests({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? status,
+    String? requesterId,
+  }) async {
+    Query query = _firestore.collection('item_requests');
+
+    if (startDate != null && endDate != null) {
+      query = query
+          .where(
+            'createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
+          )
+          .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endDate));
+    }
+    if (status != null && status != 'All') {
+      query = query.where('status', isEqualTo: status);
+    }
+    if (requesterId != null) {
+      query = query.where('requesterId', isEqualTo: requesterId);
+    }
+
+    final snapshot = await query.get();
+
+    return snapshot.docs
+        .map(
+          (doc) =>
+              ItemRequest.fromMap(doc.data() as Map<String, dynamic>, doc.id),
+        )
+        .toList();
+  }
+
+  Future<void> updateItemRequestStatus(
+    String id,
+    String status, {
+    String? reason,
+    String? itemId,
+  }) async {
+    final data = <String, dynamic>{'status': status};
+
+    if (reason != null) data['reason'] = reason;
+    if (itemId != null) data['itemId'] = itemId;
+
+    await _firestore.collection('item_requests').doc(id).update(data);
+  }
+
+  // ---------------- Notifications ----------------
+
   Future<void> addNotification(NotificationModel notification) async {
     await _firestore
         .collection('notifications')
@@ -164,5 +262,55 @@ class FirestoreService {
     await _firestore.collection('notifications').doc(id).update({
       'isRead': true,
     });
+  }
+
+  // ---------------- User Search ----------------
+
+  Future<List<UserModel>> searchUsersByEmailPrefix(String prefix) async {
+    final snapshot =
+        await _firestore
+            .collection('users')
+            .where('email', isGreaterThanOrEqualTo: prefix)
+            .where('email', isLessThan: '${prefix}z')
+            .limit(10)
+            .get();
+
+    return snapshot.docs
+        .map((doc) => UserModel.fromMap(doc.data(), doc.id))
+        .toList();
+  }
+
+  Future<List<String>> getAllUserEmails() async {
+    final snapshot = await FirebaseFirestore.instance.collection('users').get();
+    return snapshot.docs
+        .map((doc) => doc['email'] as String?)
+        .where((email) => email != null)
+        .cast<String>()
+        .toList();
+  }
+
+  Future<List<UserModel>> searchUsersByEmail(String query) async {
+    final snapshot =
+        await _firestore
+            .collection('users')
+            .where('email', isGreaterThanOrEqualTo: query)
+            .where('email', isLessThanOrEqualTo: '$query\uf8ff')
+            .limit(10)
+            .get();
+
+    return snapshot.docs
+        .map((doc) => UserModel.fromMap(doc.data(), doc.id))
+        .toList();
+  }
+
+  Future<List<String>> searchUserEmails(String query) async {
+    if (query.trim().isEmpty) return [];
+
+    final snapshot = await _firestore.collection('users').get();
+
+    return snapshot.docs
+        .map((doc) => doc['email'] as String)
+        .where((email) => email.toLowerCase().contains(query.toLowerCase()))
+        .toList();
   }
 }

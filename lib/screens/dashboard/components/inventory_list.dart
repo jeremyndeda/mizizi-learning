@@ -8,7 +8,6 @@ import '../../../core/widgets/inventory_card.dart';
 import '../../../core/widgets/filter_chip.dart';
 import '../../inventory/add_edit_item_screen.dart';
 import '../../inventory/issue_dialog.dart';
-import '../../inventory/request_repair_screen.dart';
 
 class InventoryList extends StatefulWidget {
   final String userId;
@@ -26,6 +25,9 @@ class _InventoryListState extends State<InventoryList> {
   String? _selectedUserFilter;
   String? _selectedCategoryFilter;
   String? _selectedConditionFilter;
+
+  int _currentPage = 0;
+  final int _itemsPerPage = 5;
 
   @override
   Widget build(BuildContext context) {
@@ -47,108 +49,7 @@ class _InventoryListState extends State<InventoryList> {
           children: [
             Text('Inventory Overview', style: AppTypography.heading2),
             const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  if (role == 'admin') ...[
-                    CustomFilterChip(
-                      label: 'All Users',
-                      isSelected: _selectedUserFilter == null,
-                      onSelected:
-                          () => setState(() => _selectedUserFilter = null),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  CustomFilterChip(
-                    label: 'My Items',
-                    isSelected: _selectedUserFilter == widget.userId,
-                    onSelected:
-                        () =>
-                            setState(() => _selectedUserFilter = widget.userId),
-                  ),
-                  const SizedBox(width: 8),
-                  CustomFilterChip(
-                    label: 'Stationery',
-                    isSelected: _selectedCategoryFilter == 'Stationery',
-                    onSelected:
-                        () => setState(
-                          () => _selectedCategoryFilter = 'Stationery',
-                        ),
-                  ),
-                  const SizedBox(width: 8),
-                  CustomFilterChip(
-                    label: 'Sanitary Items',
-                    isSelected: _selectedCategoryFilter == 'Sanitary Items',
-                    onSelected:
-                        () => setState(
-                          () => _selectedCategoryFilter = 'Sanitary Items',
-                        ),
-                  ),
-                  const SizedBox(width: 8),
-                  CustomFilterChip(
-                    label: 'Electronics',
-                    isSelected: _selectedCategoryFilter == 'Electronics',
-                    onSelected:
-                        () => setState(
-                          () => _selectedCategoryFilter = 'Electronics',
-                        ),
-                  ),
-                  const SizedBox(width: 8),
-                  CustomFilterChip(
-                    label: 'Furniture',
-                    isSelected: _selectedCategoryFilter == 'Furniture',
-                    onSelected:
-                        () => setState(
-                          () => _selectedCategoryFilter = 'Furniture',
-                        ),
-                  ),
-                  const SizedBox(width: 8),
-                  CustomFilterChip(
-                    label: 'Kids Toys',
-                    isSelected: _selectedCategoryFilter == 'Kids Toys',
-                    onSelected:
-                        () => setState(
-                          () => _selectedCategoryFilter = 'Kids Toys',
-                        ),
-                  ),
-                  const SizedBox(width: 8),
-                  CustomFilterChip(
-                    label: 'Accessories',
-                    isSelected: _selectedCategoryFilter == 'Accessories',
-                    onSelected:
-                        () => setState(
-                          () => _selectedCategoryFilter = 'Accessories',
-                        ),
-                  ),
-                  const SizedBox(width: 8),
-                  CustomFilterChip(
-                    label: 'Food Items',
-                    isSelected: _selectedCategoryFilter == 'Food Items',
-                    onSelected:
-                        () => setState(
-                          () => _selectedCategoryFilter = 'Food Items',
-                        ),
-                  ),
-                  const SizedBox(width: 8),
-                  CustomFilterChip(
-                    label: 'Good',
-                    isSelected: _selectedConditionFilter == 'Good',
-                    onSelected:
-                        () => setState(() => _selectedConditionFilter = 'Good'),
-                  ),
-                  const SizedBox(width: 8),
-                  CustomFilterChip(
-                    label: 'Needs Repair',
-                    isSelected: _selectedConditionFilter == 'Needs Repair',
-                    onSelected:
-                        () => setState(
-                          () => _selectedCategoryFilter = 'Needs Repair',
-                        ),
-                  ),
-                ],
-              ),
-            ),
+            _buildFilterChips(role),
             const SizedBox(height: 16),
             StreamBuilder<List<InventoryItem>>(
               stream: inventoryStream,
@@ -182,95 +83,62 @@ class _InventoryListState extends State<InventoryList> {
                           .toList();
                 }
 
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: items.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) =>
-                                      AddEditItemScreen(userId: widget.userId),
-                            ),
-                          );
-                        },
-                        child: const Text('Add New Item'),
-                      );
-                    }
+                final totalItems = items.length;
+                final start = _currentPage * _itemsPerPage;
+                final end = (_currentPage + 1) * _itemsPerPage;
+                final pagedItems = items.sublist(
+                  start,
+                  end > totalItems ? totalItems : end,
+                );
 
-                    final item = items[index - 1];
-                    return InventoryCard(
-                      item: item,
-                      onEdit: () {
-                        if (_authService.currentUser?.uid == item.userId) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => AddEditItemScreen(
-                                    userId: widget.userId,
-                                    item: item,
-                                  ),
-                            ),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('You can only edit your own items'),
-                            ),
-                          );
-                        }
-                      },
-                      onDelete: () async {
-                        if (_authService.currentUser?.uid == item.userId) {
-                          await _firestoreService.deleteInventoryItem(item.id);
-                          await _notificationService.sendInventoryNotification(
-                            widget.userId,
-                            'Item Deleted',
-                            'Item ${item.name} has been deleted.',
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'You can only delete your own items',
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                      onRequestRepair: () {
+                return Column(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => RequestRepairScreen(item: item),
+                            builder:
+                                (_) => AddEditItemScreen(userId: widget.userId),
                           ),
                         );
                       },
-                      onIssue: () {
-                        if (_authService.currentUser?.uid == item.userId &&
-                            item.amount > 0) {
-                          showDialog(
-                            context: context,
-                            builder: (context) => IssueDialog(item: item),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'You can only issue your own items with available amount',
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                    );
-                  },
+                      child: const Text('Add New Item'),
+                    ),
+                    const SizedBox(height: 8),
+                    ...pagedItems.map(
+                      (item) => InventoryCard(
+                        item: item,
+                        currentUserRole: role,
+                        onEdit: () => _handleEdit(item),
+                        onDelete: () => _handleDelete(item),
+                        onIssue: () => _handleIssue(item, role),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed:
+                              _currentPage > 0
+                                  ? () => setState(() => _currentPage--)
+                                  : null,
+                          child: const Text('Previous'),
+                        ),
+                        Text(
+                          'Page ${_currentPage + 1} of ${(totalItems / _itemsPerPage).ceil()}',
+                        ),
+                        TextButton(
+                          onPressed:
+                              end < totalItems
+                                  ? () => setState(() => _currentPage++)
+                                  : null,
+                          child: const Text('Next'),
+                        ),
+                      ],
+                    ),
+                  ],
                 );
               },
             ),
@@ -278,5 +146,129 @@ class _InventoryListState extends State<InventoryList> {
         );
       },
     );
+  }
+
+  Widget _buildFilterChips(String role) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          if (role == 'admin') ...[
+            CustomFilterChip(
+              label: 'All Users',
+              isSelected: _selectedUserFilter == null,
+              onSelected: () {
+                setState(() {
+                  _selectedUserFilter = null;
+                  _currentPage = 0;
+                });
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
+          CustomFilterChip(
+            label: 'My Items',
+            isSelected: _selectedUserFilter == widget.userId,
+            onSelected: () {
+              setState(() {
+                _selectedUserFilter = widget.userId;
+                _currentPage = 0;
+              });
+            },
+          ),
+          const SizedBox(width: 8),
+          _buildCategoryChip('Stationery'),
+          _buildCategoryChip('Sanitary Items'),
+          _buildCategoryChip('Electronics'),
+          _buildCategoryChip('Furniture'),
+          _buildCategoryChip('Kids Toys'),
+          _buildCategoryChip('Accessories'),
+          _buildCategoryChip('Food Items'),
+          _buildConditionChip('Good'),
+          _buildConditionChip('Needs Repair'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryChip(String category) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: CustomFilterChip(
+        label: category,
+        isSelected: _selectedCategoryFilter == category,
+        onSelected: () {
+          setState(() {
+            _selectedCategoryFilter = category;
+            _currentPage = 0;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildConditionChip(String condition) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: CustomFilterChip(
+        label: condition,
+        isSelected: _selectedConditionFilter == condition,
+        onSelected: () {
+          setState(() {
+            _selectedConditionFilter = condition;
+            _currentPage = 0;
+          });
+        },
+      ),
+    );
+  }
+
+  void _handleEdit(InventoryItem item) {
+    if (_authService.currentUser?.uid == item.userId) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddEditItemScreen(userId: widget.userId, item: item),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You can only edit your own items')),
+      );
+    }
+  }
+
+  Future<void> _handleDelete(InventoryItem item) async {
+    if (_authService.currentUser?.uid == item.userId) {
+      await _firestoreService.deleteInventoryItem(item.id);
+      await _notificationService.sendInventoryNotification(
+        widget.userId,
+        'Item Deleted',
+        'Item ${item.name} has been deleted.',
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You can only delete your own items')),
+      );
+    }
+  }
+
+  void _handleIssue(InventoryItem item, String role) {
+    if ((role == 'admin' || role == 'care') &&
+        _authService.currentUser?.uid == item.userId &&
+        item.amount > 0) {
+      showDialog(
+        context: context,
+        builder: (context) => IssueDialog(item: item),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'You can only issue your own items with available amount',
+          ),
+        ),
+      );
+    }
   }
 }

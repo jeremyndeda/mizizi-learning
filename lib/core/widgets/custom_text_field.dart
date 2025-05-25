@@ -5,7 +5,9 @@ class CustomTextField extends StatelessWidget {
   final TextEditingController controller;
   final String labelText;
   final bool obscureText;
-  final TextInputType? keyboardType; // Add this parameter
+  final TextInputType? keyboardType;
+  final void Function(String)? onChanged;
+  final FocusNode? focusNode; // ✅ Add the focusNode
 
   const CustomTextField({
     super.key,
@@ -13,6 +15,8 @@ class CustomTextField extends StatelessWidget {
     required this.labelText,
     this.obscureText = false,
     this.keyboardType,
+    this.onChanged,
+    this.focusNode, // ✅ Accept focusNode as a named parameter
   });
 
   @override
@@ -20,7 +24,9 @@ class CustomTextField extends StatelessWidget {
     return TextField(
       controller: controller,
       obscureText: obscureText,
-      keyboardType: keyboardType, // Use the parameter here
+      keyboardType: keyboardType,
+      onChanged: onChanged,
+      focusNode: focusNode, // ✅ Use the focusNode here
       decoration: InputDecoration(
         labelText: labelText,
         labelStyle: const TextStyle(color: AppColors.primaryGreen),

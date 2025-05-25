@@ -8,20 +8,27 @@ import '../../core/services/notification_service.dart';
 import '../../core/services/pdf_service.dart';
 import '../../core/widgets/inventory_card.dart';
 import 'add_edit_item_screen.dart';
-import 'request_repair_screen.dart';
 import 'issue_dialog.dart';
 import 'report_filter_dialog.dart';
 
-class AllInventoryScreen extends StatelessWidget {
+class AllInventoryScreen extends StatefulWidget {
   const AllInventoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final AuthService authService = AuthService();
-    final FirestoreService firestoreService = FirestoreService();
-    final NotificationService notificationService = NotificationService();
-    final PdfService pdfService = PdfService();
+  State<AllInventoryScreen> createState() => _AllInventoryScreenState();
+}
 
+class _AllInventoryScreenState extends State<AllInventoryScreen> {
+  final AuthService authService = AuthService();
+  final FirestoreService firestoreService = FirestoreService();
+  final NotificationService notificationService = NotificationService();
+  final PdfService pdfService = PdfService();
+
+  int _currentPage = 0;
+  final int _itemsPerPage = 5;
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<String>(
       future: authService.getUserRole(),
       builder: (context, snapshot) {
@@ -30,16 +37,14 @@ class AllInventoryScreen extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        if (snapshot.hasError || snapshot.data != 'admin') {
+        final role = snapshot.data ?? 'user';
+        if (role != 'admin') {
           return Scaffold(
             appBar: AppBar(
               title: const Text('All Inventory', style: AppTypography.heading2),
             ),
             body: const Center(
-              child: Text(
-                'Only admins can view all inventory items.',
-                style: AppTypography.bodyText,
-              ),
+              child: Text('Only admins can view all inventory items.'),
             ),
           );
         }
@@ -81,76 +86,119 @@ class AllInventoryScreen extends StatelessWidget {
               }
 
               final items = snapshot.data!;
-              return ListView.builder(
-                padding: const EdgeInsets.all(16.0),
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  return InventoryCard(
-                    item: item,
-                    onEdit: () {
-                      if (authService.currentUser?.uid == item.userId) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (_) => AddEditItemScreen(
-                                  userId: item.userId,
-                                  item: item,
+              final totalItems = items.length;
+              final start = _currentPage * _itemsPerPage;
+              final end = (_currentPage + 1) * _itemsPerPage;
+              final pagedItems = items.sublist(
+                start,
+                end > totalItems ? totalItems : end,
+              );
+
+              return Column(
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16.0),
+                      itemCount: pagedItems.length,
+                      itemBuilder: (context, index) {
+                        final item = pagedItems[index];
+                        return InventoryCard(
+                          item: item,
+                          currentUserRole: role,
+                          onEdit: () {
+                            if (authService.currentUser?.uid == item.userId) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (_) => AddEditItemScreen(
+                                        userId: item.userId,
+                                        item: item,
+                                      ),
                                 ),
-                          ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'You can only edit your own items',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          onDelete: () async {
+                            if (authService.currentUser?.uid == item.userId) {
+                              await firestoreService.deleteInventoryItem(
+                                item.id,
+                              );
+                              await notificationService
+                                  .sendInventoryNotification(
+                                    item.userId,
+                                    'Item Deleted',
+                                    'Item ${item.name} has been deleted.',
+                                  );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'You can only delete your own items',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          onIssue: () {
+                            if ((role == 'admin' || role == 'care') &&
+                                authService.currentUser?.uid == item.userId &&
+                                item.amount > 0) {
+                              showDialog(
+                                context: context,
+                                builder: (context) => IssueDialog(item: item),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'You can only issue your own items with available amount',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                         );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('You can only edit your own items'),
-                          ),
-                        );
-                      }
-                    },
-                    onDelete: () async {
-                      if (authService.currentUser?.uid == item.userId) {
-                        await firestoreService.deleteInventoryItem(item.id);
-                        await notificationService.sendInventoryNotification(
-                          item.userId,
-                          'Item Deleted',
-                          'Item ${item.name} has been deleted.',
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('You can only delete your own items'),
-                          ),
-                        );
-                      }
-                    },
-                    onRequestRepair: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => RequestRepairScreen(item: item),
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed:
+                              _currentPage > 0
+                                  ? () => setState(() => _currentPage--)
+                                  : null,
+                          child: const Text('Previous'),
                         ),
-                      );
-                    },
-                    onIssue: () {
-                      if (authService.currentUser?.uid == item.userId &&
-                          item.amount > 0) {
-                        showDialog(
-                          context: context,
-                          builder: (context) => IssueDialog(item: item),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'You can only issue your own items with available amount',
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                  );
-                },
+                        Text(
+                          'Page ${_currentPage + 1} of ${(totalItems / _itemsPerPage).ceil()}',
+                        ),
+                        TextButton(
+                          onPressed:
+                              end < totalItems
+                                  ? () => setState(() => _currentPage++)
+                                  : null,
+                          child: const Text('Next'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               );
             },
           ),
