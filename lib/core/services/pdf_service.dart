@@ -145,7 +145,7 @@ class PdfService {
               ),
               pw.Paragraph(text: userFilter),
               pw.Paragraph(text: dateFilter),
-              pw.Table.fromTextArray(
+              pw.TableHelper.fromTextArray(
                 headers: [
                   'Type',
                   'Item',
@@ -185,7 +185,7 @@ class PdfService {
               pw.SizedBox(height: 20),
               pw.Center(
                 child: pw.Text(
-                  'Mizizi Learning Hub\n123 Green Lane, Nairobi, Kenya\nGenerated on: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}\nAny Questions? support@mizizi.co.ke',
+                  'Mizizi Learning Hub\nLavington, Nairobi, Kenya\nGenerated on: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}\nAny Questions? admin@mizizilearning.com',
                   textAlign: pw.TextAlign.center,
                   style: const pw.TextStyle(fontSize: 10),
                 ),
@@ -273,7 +273,7 @@ class PdfService {
                     'Requester: ${requesterEmail ?? 'All'}, '
                     'Date: ${startDate != null && endDate != null ? "${DateFormat('yyyy-MM-dd').format(startDate)} to ${DateFormat('yyyy-MM-dd').format(endDate)}" : 'All'}',
               ),
-              pw.Table.fromTextArray(
+              pw.TableHelper.fromTextArray(
                 headers: [
                   'Item',
                   'Quantity',
@@ -295,7 +295,7 @@ class PdfService {
               pw.SizedBox(height: 20),
               pw.Center(
                 child: pw.Text(
-                  'Mizizi Learning Hub\n123 Green Lane, Nairobi, Kenya\nGenerated on: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}\nAny Questions? support@mizizi.co.ke',
+                  'Mizizi Learning Hub\n Lavington, Nairobi, Kenya\nGenerated on: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}\nAny Questions? admin@mizizilearning.com',
                   textAlign: pw.TextAlign.center,
                   style: const pw.TextStyle(fontSize: 10),
                 ),
