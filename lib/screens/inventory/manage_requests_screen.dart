@@ -17,6 +17,7 @@ class ManageRequestsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final FirestoreService firestoreService = FirestoreService();
     final NotificationService notificationService = NotificationService();
+    // ignore: unused_local_variable
     final AuthService authService = AuthService();
     final Logger logger = Logger('ManageRequestsScreen');
 
