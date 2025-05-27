@@ -31,52 +31,66 @@ class PdfService {
 
     List<InventoryItem> filteredInventoryItems = inventoryItems;
     if (specificDate != null) {
-      final start = DateTime(
+      final startLocal = DateTime(
         specificDate.year,
         specificDate.month,
         specificDate.day,
       );
-      final end = start.add(const Duration(days: 1));
+      final startUtc = startLocal.toUtc();
+      final endLocal = startLocal.add(const Duration(days: 1));
+      final endUtc = endLocal.toUtc();
       filteredInventoryItems =
           inventoryItems
               .where(
                 (item) =>
-                    item.createdAt.isAfter(start) &&
-                    item.createdAt.isBefore(end),
+                    item.createdAt.isAfter(startUtc) &&
+                    item.createdAt.isBefore(endUtc),
               )
               .toList();
     } else if (dateRange != null) {
+      final startLocal = dateRange[0];
+      final endLocal = dateRange[1].add(const Duration(days: 1));
+      final startUtc = startLocal.toUtc();
+      final endUtc = endLocal.toUtc();
       filteredInventoryItems =
           inventoryItems
               .where(
                 (item) =>
-                    item.createdAt.isAfter(dateRange[0]) &&
-                    item.createdAt.isBefore(dateRange[1]),
+                    item.createdAt.isAfter(startUtc) &&
+                    item.createdAt.isBefore(endUtc),
               )
               .toList();
     }
 
     List<ItemRequest> filteredRequests = allRequests;
     if (specificDate != null) {
-      final start = DateTime(
+      final startLocal = DateTime(
         specificDate.year,
         specificDate.month,
         specificDate.day,
       );
-      final end = start.add(const Duration(days: 1));
-      filteredRequests =
-          allRequests
-              .where(
-                (r) => r.createdAt.isAfter(start) && r.createdAt.isBefore(end),
-              )
-              .toList();
-    } else if (dateRange != null) {
+      final startUtc = startLocal.toUtc();
+      final endLocal = startLocal.add(const Duration(days: 1));
+      final endUtc = endLocal.toUtc();
       filteredRequests =
           allRequests
               .where(
                 (r) =>
-                    r.createdAt.isAfter(dateRange[0]) &&
-                    r.createdAt.isBefore(dateRange[1]),
+                    r.createdAt.isAfter(startUtc) &&
+                    r.createdAt.isBefore(endUtc),
+              )
+              .toList();
+    } else if (dateRange != null) {
+      final startLocal = dateRange[0];
+      final endLocal = dateRange[1].add(const Duration(days: 1));
+      final startUtc = startLocal.toUtc();
+      final endUtc = endLocal.toUtc();
+      filteredRequests =
+          allRequests
+              .where(
+                (r) =>
+                    r.createdAt.isAfter(startUtc) &&
+                    r.createdAt.isBefore(endUtc),
               )
               .toList();
     }
@@ -215,12 +229,16 @@ class PdfService {
     List<ItemRequest> filtered = allRequests;
 
     if (startDate != null && endDate != null) {
+      final startLocal = startDate;
+      final endLocal = endDate.add(const Duration(days: 1));
+      final startUtc = startLocal.toUtc();
+      final endUtc = endLocal.toUtc();
       filtered =
           filtered
               .where(
                 (r) =>
-                    r.createdAt.isAfter(startDate) &&
-                    r.createdAt.isBefore(endDate.add(const Duration(days: 1))),
+                    r.createdAt.isAfter(startUtc) &&
+                    r.createdAt.isBefore(endUtc),
               )
               .toList();
     }
@@ -295,7 +313,7 @@ class PdfService {
               pw.SizedBox(height: 20),
               pw.Center(
                 child: pw.Text(
-                  'Mizizi Learning Hub\n Lavington, Nairobi, Kenya\nGenerated on: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}\nAny Questions? admin@mizizilearning.com',
+                  'Mizizi Learning Hub\nLavington, Nairobi, Kenya\nGenerated on: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}\nAny Questions? admin@mizizilearning.com',
                   textAlign: pw.TextAlign.center,
                   style: const pw.TextStyle(fontSize: 10),
                 ),

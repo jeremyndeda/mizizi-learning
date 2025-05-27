@@ -29,6 +29,8 @@ class _GenerateRequestReportScreenState
   List<String> _allEmails = [];
   List<String> _suggestedEmails = [];
   Timer? _debounce;
+  final GlobalKey<State<StatefulWidget>> _textFieldKey = GlobalKey();
+  OverlayEntry? _overlayEntry;
 
   @override
   void initState() {
@@ -40,6 +42,7 @@ class _GenerateRequestReportScreenState
         _updateSuggestions(_requesterEmailController.text);
       } else {
         setState(() => _suggestedEmails.clear());
+        _hideSuggestions();
       }
     });
 
@@ -52,9 +55,6 @@ class _GenerateRequestReportScreenState
     final emails = await _firestoreService.getAllUserEmails();
     setState(() {
       _allEmails = emails;
-      if (_emailFocusNode.hasFocus && _requesterEmailController.text.isEmpty) {
-        _suggestedEmails = _allEmails.take(10).toList();
-      }
     });
   }
 
@@ -73,7 +73,77 @@ class _GenerateRequestReportScreenState
                   .toList();
         }
       });
+      if (_suggestedEmails.isNotEmpty) {
+        _showSuggestions();
+      } else {
+        _hideSuggestions();
+      }
     });
+  }
+
+  void _showSuggestions() {
+    if (_overlayEntry != null) return;
+    final context = _textFieldKey.currentContext;
+    if (context == null) return;
+    final renderBox = context.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    _overlayEntry = OverlayEntry(
+      builder:
+          (context) => Positioned(
+            left: offset.dx,
+            top: offset.dy + size.height + 8,
+            width: size.width,
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(12),
+              color: AppColors.white,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  children:
+                      _suggestedEmails
+                          .asMap()
+                          .entries
+                          .map(
+                            (entry) => ListTile(
+                              key: ValueKey(entry.key),
+                              title: Text(entry.value),
+                              onTap: () {
+                                _selectEmail(entry.value);
+                              },
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              tileColor: AppColors.white,
+                              textColor: AppColors.primaryGreen,
+                            ),
+                          )
+                          .toList(),
+                ),
+              ),
+            ),
+          ),
+    );
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _hideSuggestions() {
+    if (_overlayEntry != null) {
+      _overlayEntry!.remove();
+      _overlayEntry = null;
+    }
+  }
+
+  void _selectEmail(String email) {
+    setState(() {
+      _requesterEmailController.text = email;
+      _suggestedEmails.clear();
+    });
+    _hideSuggestions();
+    _emailFocusNode.unfocus();
   }
 
   Future<void> _selectStartDate() async {
@@ -127,7 +197,9 @@ class _GenerateRequestReportScreenState
 
     if (file.lengthSync() == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No matching requests found')),
+        const SnackBar(
+          content: Text('No matching requests found for the selected filters'),
+        ),
       );
       return;
     }
@@ -135,20 +207,13 @@ class _GenerateRequestReportScreenState
     Share.shareXFiles([XFile(file.path)], text: 'Item Requests Report');
   }
 
-  void _selectEmail(String email) {
-    setState(() {
-      _requesterEmailController.text = email;
-      _suggestedEmails.clear();
-    });
-    _emailFocusNode.unfocus();
-  }
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        _emailFocusNode.unfocus();
+        FocusScope.of(context).unfocus();
         setState(() => _suggestedEmails.clear());
+        _hideSuggestions();
       },
       child: Scaffold(
         appBar: AppBar(
@@ -201,65 +266,20 @@ class _GenerateRequestReportScreenState
                 onChanged: (value) => setState(() => _status = value),
               ),
               const SizedBox(height: 16),
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  TextField(
-                    focusNode: _emailFocusNode,
-                    controller: _requesterEmailController,
-                    decoration: InputDecoration(
-                      labelText: 'Requester Email',
-                      filled: true,
-                      fillColor: AppColors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    onChanged: _updateSuggestions,
-                    onTap: () {
-                      _updateSuggestions(_requesterEmailController.text);
-                    },
+              TextField(
+                key: _textFieldKey,
+                focusNode: _emailFocusNode,
+                controller: _requesterEmailController,
+                decoration: InputDecoration(
+                  labelText: 'Requester Email',
+                  filled: true,
+                  fillColor: AppColors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
                   ),
-                  if (_suggestedEmails.isNotEmpty)
-                    Positioned(
-                      top: 70,
-                      left: 0,
-                      right: 0,
-                      child: Material(
-                        elevation: 4,
-                        borderRadius: BorderRadius.circular(12),
-                        color: AppColors.white,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 200),
-                          child: ListView(
-                            shrinkWrap: true,
-                            padding: EdgeInsets.zero,
-                            children:
-                                _suggestedEmails
-                                    .asMap()
-                                    .entries
-                                    .map(
-                                      (entry) => ListTile(
-                                        key: ValueKey(entry.key),
-                                        title: Text(entry.value),
-                                        onTap: () => _selectEmail(entry.value),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        tileColor: AppColors.white,
-                                        textColor: AppColors.primaryGreen,
-                                      ),
-                                    )
-                                    .toList(),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+                ),
+                keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 24),
               CustomButton(text: 'Generate PDF', onPressed: _generatePdf),
@@ -275,6 +295,9 @@ class _GenerateRequestReportScreenState
     _requesterEmailController.dispose();
     _emailFocusNode.dispose();
     _debounce?.cancel();
+    if (_overlayEntry != null) {
+      _overlayEntry!.remove();
+    }
     super.dispose();
   }
 }
