@@ -10,6 +10,8 @@ import 'firestore_service.dart';
 class PdfService {
   final FirestoreService _firestoreService = FirestoreService();
 
+  /// Generates a combined Inventory and Item Requests report PDF
+  /// Supports filtering by userId, specificDate, or dateRange.
   Future<File> generateInventoryReport({
     String? userId,
     String? userName,
@@ -22,23 +24,23 @@ class PdfService {
         '${directory.path}/inventory_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final file = File(filePath);
 
+    // Fetch inventory and all requests
     final inventoryItems =
         userId != null
             ? await _firestoreService.getUserInventory(userId).first
             : await _firestoreService.getAllInventory().first;
-
     final allRequests = await _firestoreService.getAllItemRequests().first;
 
+    // Filter inventory by date if needed
     List<InventoryItem> filteredInventoryItems = inventoryItems;
     if (specificDate != null) {
-      final startLocal = DateTime(
-        specificDate.year,
-        specificDate.month,
-        specificDate.day,
-      );
-      final startUtc = startLocal.toUtc();
-      final endLocal = startLocal.add(const Duration(days: 1));
-      final endUtc = endLocal.toUtc();
+      final startUtc =
+          DateTime(
+            specificDate.year,
+            specificDate.month,
+            specificDate.day,
+          ).toUtc();
+      final endUtc = startUtc.add(const Duration(days: 1));
       filteredInventoryItems =
           inventoryItems
               .where(
@@ -47,11 +49,9 @@ class PdfService {
                     item.createdAt.isBefore(endUtc),
               )
               .toList();
-    } else if (dateRange != null) {
-      final startLocal = dateRange[0];
-      final endLocal = dateRange[1].add(const Duration(days: 1));
-      final startUtc = startLocal.toUtc();
-      final endUtc = endLocal.toUtc();
+    } else if (dateRange != null && dateRange.length == 2) {
+      final startUtc = dateRange[0].toUtc();
+      final endUtc = dateRange[1].add(const Duration(days: 1)).toUtc();
       filteredInventoryItems =
           inventoryItems
               .where(
@@ -62,16 +62,16 @@ class PdfService {
               .toList();
     }
 
+    // Filter requests by date and userId if needed
     List<ItemRequest> filteredRequests = allRequests;
     if (specificDate != null) {
-      final startLocal = DateTime(
-        specificDate.year,
-        specificDate.month,
-        specificDate.day,
-      );
-      final startUtc = startLocal.toUtc();
-      final endLocal = startLocal.add(const Duration(days: 1));
-      final endUtc = endLocal.toUtc();
+      final startUtc =
+          DateTime(
+            specificDate.year,
+            specificDate.month,
+            specificDate.day,
+          ).toUtc();
+      final endUtc = startUtc.add(const Duration(days: 1));
       filteredRequests =
           allRequests
               .where(
@@ -80,11 +80,9 @@ class PdfService {
                     r.createdAt.isBefore(endUtc),
               )
               .toList();
-    } else if (dateRange != null) {
-      final startLocal = dateRange[0];
-      final endLocal = dateRange[1].add(const Duration(days: 1));
-      final startUtc = startLocal.toUtc();
-      final endUtc = endLocal.toUtc();
+    } else if (dateRange != null && dateRange.length == 2) {
+      final startUtc = dateRange[0].toUtc();
+      final endUtc = dateRange[1].add(const Duration(days: 1)).toUtc();
       filteredRequests =
           allRequests
               .where(
@@ -94,11 +92,13 @@ class PdfService {
               )
               .toList();
     }
+
     if (userId != null) {
       filteredRequests =
           filteredRequests.where((r) => r.requesterId == userId).toList();
     }
 
+    // Prepare request data with extra details
     final requestData = await Future.wait(
       filteredRequests.map((request) async {
         final item = await _firestoreService.getItemById(request.itemId);
@@ -118,6 +118,7 @@ class PdfService {
       }),
     );
 
+    // Prepare inventory data
     final inventoryData =
         filteredInventoryItems.map((item) {
           return {
@@ -134,17 +135,20 @@ class PdfService {
           };
         }).toList();
 
+    // Combine and sort all data by date descending
     final allData = [...inventoryData, ...requestData];
     allData.sort((a, b) => b['createdAt']!.compareTo(a['createdAt']!));
 
+    // Filters display text
     final userFilter = userId != null ? 'User: $userName' : 'All Users';
     final dateFilter =
         specificDate != null
             ? 'Date: ${DateFormat('yyyy-MM-dd').format(specificDate)}'
-            : dateRange != null
+            : (dateRange != null && dateRange.length == 2)
             ? 'Date Range: ${DateFormat('yyyy-MM-dd').format(dateRange[0])} to ${DateFormat('yyyy-MM-dd').format(dateRange[1])}'
             : 'All Dates';
 
+    // Build PDF content
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
@@ -208,60 +212,27 @@ class PdfService {
       ),
     );
 
+    // Save PDF to file
     await file.writeAsBytes(await pdf.save());
     return file;
   }
 
-  Future<File> generateRequestsReport({
-    DateTime? startDate,
-    DateTime? endDate,
-    String? status,
-    String? requesterEmail,
-  }) async {
+  /// Generates an Item Requests only report PDF
+  /// Takes a list of ItemRequest objects (already fetched & filtered)
+  Future<File> generateItemRequestsReport(List<ItemRequest> requests) async {
     final pdf = pw.Document();
     final directory = await getTemporaryDirectory();
     final filePath =
-        '${directory.path}/requests_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        '${directory.path}/item_requests_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final file = File(filePath);
 
-    final allRequests = await _firestoreService.getAllItemRequests().first;
-
-    List<ItemRequest> filtered = allRequests;
-
-    if (startDate != null && endDate != null) {
-      final startLocal = startDate;
-      final endLocal = endDate.add(const Duration(days: 1));
-      final startUtc = startLocal.toUtc();
-      final endUtc = endLocal.toUtc();
-      filtered =
-          filtered
-              .where(
-                (r) =>
-                    r.createdAt.isAfter(startUtc) &&
-                    r.createdAt.isBefore(endUtc),
-              )
-              .toList();
-    }
-
-    if (status != null && status != 'All') {
-      filtered = filtered.where((r) => r.status == status).toList();
-    }
-
-    if (requesterEmail != null && requesterEmail.isNotEmpty) {
-      final user = await _firestoreService.getUserByEmail(requesterEmail);
-      if (user != null) {
-        filtered = filtered.where((r) => r.requesterId == user.uid).toList();
-      } else {
-        filtered = [];
-      }
-    }
-
+    // Prepare data for the PDF table
     final requestData = await Future.wait(
-      filtered.map((request) async {
+      requests.map((request) async {
         final item = await _firestoreService.getItemById(request.itemId);
         final user = await _firestoreService.getUser(request.requesterId);
         return [
-          item?.name ?? 'Unknown',
+          item?.name ?? request.itemName,
           request.quantity.toString(),
           item?.category ?? 'N/A',
           user?.email ?? 'Unknown',
@@ -273,6 +244,7 @@ class PdfService {
       }),
     );
 
+    // Build PDF content
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -284,12 +256,6 @@ class PdfService {
                   'Item Requests Report',
                   style: pw.TextStyle(fontSize: 24),
                 ),
-              ),
-              pw.Paragraph(
-                text:
-                    'Filters - Status: ${status ?? 'All'}, '
-                    'Requester: ${requesterEmail ?? 'All'}, '
-                    'Date: ${startDate != null && endDate != null ? "${DateFormat('yyyy-MM-dd').format(startDate)} to ${DateFormat('yyyy-MM-dd').format(endDate)}" : 'All'}',
               ),
               pw.TableHelper.fromTextArray(
                 headers: [
@@ -322,6 +288,7 @@ class PdfService {
       ),
     );
 
+    // Save PDF to file
     await file.writeAsBytes(await pdf.save());
     return file;
   }

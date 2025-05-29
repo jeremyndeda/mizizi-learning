@@ -13,7 +13,6 @@ import '../inventory/user_inventory_screen.dart';
 import '../inventory/all_inventory_screen.dart';
 import '../inventory/request_item_screen.dart';
 import '../inventory/manage_requests_screen.dart';
-import '../inventory/generate_request_report_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -163,19 +162,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => const ManageRequestsScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  NavigationCard(
-                    title: 'Generate Request Report',
-                    icon: Icons.picture_as_pdf,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const GenerateRequestReportScreen(),
                         ),
                       );
                     },

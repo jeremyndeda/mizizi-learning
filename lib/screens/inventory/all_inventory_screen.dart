@@ -9,7 +9,6 @@ import '../../core/services/pdf_service.dart';
 import '../../core/widgets/inventory_card.dart';
 import 'add_edit_item_screen.dart';
 import 'issue_dialog.dart';
-import 'report_filter_dialog.dart';
 
 class AllInventoryScreen extends StatefulWidget {
   const AllInventoryScreen({super.key});
@@ -37,6 +36,7 @@ class _AllInventoryScreenState extends State<AllInventoryScreen> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
+
         final role = snapshot.data ?? 'user';
         if (role != 'admin') {
           return Scaffold(
@@ -55,24 +55,20 @@ class _AllInventoryScreenState extends State<AllInventoryScreen> {
             actions: [
               IconButton(
                 icon: const Icon(Icons.picture_as_pdf),
+                tooltip: 'Generate Full Inventory PDF',
                 onPressed: () async {
-                  final result = await showDialog<Map<String, dynamic>>(
-                    context: context,
-                    builder:
-                        (context) => ReportFilterDialog(
-                          currentUserId: authService.currentUser!.uid,
-                        ),
-                  );
-                  if (result != null) {
-                    final file = await pdfService.generateInventoryReport(
-                      userId: result['userId'],
-                      dateRange: result['dateRange'],
-                      specificDate: result['specificDate'],
-                      userName: result['userName'],
-                    );
-                    Share.shareXFiles([
+                  try {
+                    // Generate full inventory report PDF
+                    final file = await pdfService.generateInventoryReport();
+
+                    // Share the generated PDF file
+                    await Share.shareXFiles([
                       XFile(file.path),
                     ], text: 'Inventory Report');
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to generate PDF: $e')),
+                    );
                   }
                 },
               ),
