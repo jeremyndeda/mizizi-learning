@@ -19,6 +19,7 @@ class ManageRequestsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final FirestoreService firestoreService = FirestoreService();
     final NotificationService notificationService = NotificationService();
+    // ignore: unused_local_variable
     final AuthService authService = AuthService();
     final PdfService pdfService = PdfService();
     final Logger logger = Logger('ManageRequestsScreen');
@@ -231,8 +232,9 @@ class ManageRequestsScreen extends StatelessWidget {
 
                                           if (confirm != true) return;
 
+                                          final newItemId = const Uuid().v4();
                                           final newItem = InventoryItem(
-                                            id: const Uuid().v4(),
+                                            id: newItemId,
                                             name: request.itemName,
                                             condition: 'Good',
                                             category: 'Other',
@@ -252,7 +254,7 @@ class ManageRequestsScreen extends StatelessWidget {
                                               .updateItemRequestStatus(
                                                 request.id,
                                                 'approved',
-                                                itemId: null,
+                                                itemId: newItemId,
                                               );
                                         }
 

@@ -7,6 +7,70 @@ import '../models/item_request.dart';
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Stream to get all inventory items
+  Stream<List<InventoryItem>> getAllInventory() {
+    return _firestore
+        .collection('inventory')
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
+                  .toList(),
+        );
+  }
+
+  // Stream to get inventory items for a specific user
+  Stream<List<InventoryItem>> getUserInventory(String userId) {
+    return _firestore
+        .collection('inventory')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
+                  .toList(),
+        );
+  }
+
+  // Stream to get all item requests
+  Stream<List<ItemRequest>> getAllItemRequests() {
+    return _firestore
+        .collection('requests')
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => ItemRequest.fromMap(doc.data(), doc.id))
+                  .toList(),
+        );
+  }
+
+  // Get a single inventory item by ID
+  Future<InventoryItem?> getItemById(String id) async {
+    if (id.isEmpty) {
+      return null;
+    }
+    final doc = await _firestore.collection('inventory').doc(id).get();
+    if (doc.exists) {
+      return InventoryItem.fromMap(doc.data()!, id);
+    }
+    return null;
+  }
+
+  // Get a single user by ID
+  Future<UserModel?> getUser(String uid) async {
+    if (uid.isEmpty) {
+      return null;
+    }
+    final doc = await _firestore.collection('users').doc(uid).get();
+    if (doc.exists) {
+      return UserModel.fromMap(doc.data()!, uid);
+    }
+    return null;
+  }
+
   // Save user to Firestore
   Future<void> sendUserToFirestore(
     String uid,
@@ -38,13 +102,6 @@ class FirestoreService {
   }
 
   // Get user data by UID
-  Future<UserModel?> getUser(String uid) async {
-    final doc = await _firestore.collection('users').doc(uid).get();
-    if (doc.exists) {
-      return UserModel.fromMap(doc.data()!, uid);
-    }
-    return null;
-  }
 
   // Get user by email
   Future<UserModel?> getUserByEmail(String email) async {
@@ -78,27 +135,6 @@ class FirestoreService {
 
   Future<void> deleteInventoryItem(String id) async {
     await _firestore.collection('inventory').doc(id).delete();
-  }
-
-  Stream<List<InventoryItem>> getAllInventory() {
-    return _firestore.collection('inventory').snapshots().map((snapshot) {
-      return snapshot.docs
-          .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
-          .toList();
-    });
-  }
-
-  Stream<List<InventoryItem>> getUserInventory(String userId) {
-    return _firestore
-        .collection('inventory')
-        .where('userId', isEqualTo: userId)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
-                  .toList(),
-        );
   }
 
   Future<List<InventoryItem>> getInventoryByDateRange(
@@ -139,14 +175,6 @@ class FirestoreService {
         .toList();
   }
 
-  Future<InventoryItem?> getItemById(String id) async {
-    final doc = await _firestore.collection('inventory').doc(id).get();
-    if (doc.exists) {
-      return InventoryItem.fromMap(doc.data()!, id);
-    }
-    return null;
-  }
-
   Future<InventoryItem?> getItemByName(String name) async {
     final snapshot =
         await _firestore
@@ -178,14 +206,6 @@ class FirestoreService {
         .collection('item_requests')
         .doc(request.id)
         .set(request.toMap());
-  }
-
-  Stream<List<ItemRequest>> getAllItemRequests() {
-    return _firestore.collection('item_requests').snapshots().map((snapshot) {
-      return snapshot.docs
-          .map((doc) => ItemRequest.fromMap(doc.data(), doc.id))
-          .toList();
-    });
   }
 
   Future<List<ItemRequest>> getFilteredItemRequests({

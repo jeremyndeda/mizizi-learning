@@ -101,13 +101,22 @@ class PdfService {
     // Prepare request data with extra details
     final requestData = await Future.wait(
       filteredRequests.map((request) async {
-        final item = await _firestoreService.getItemById(request.itemId);
+        String itemName;
+        String category;
+        if (request.itemId.isNotEmpty) {
+          final item = await _firestoreService.getItemById(request.itemId);
+          itemName = item?.name ?? request.itemName;
+          category = item?.category ?? 'N/A';
+        } else {
+          itemName = request.itemName;
+          category = 'N/A';
+        }
         final user = await _firestoreService.getUser(request.requesterId);
         return {
           'type': 'Request',
-          'itemName': item?.name ?? 'Unknown',
+          'itemName': itemName,
           'amount': request.quantity.toString(),
-          'category': item?.category ?? 'N/A',
+          'category': category,
           'condition': 'N/A',
           'user': user?.email ?? 'Unknown',
           'status': request.status,
@@ -229,12 +238,21 @@ class PdfService {
     // Prepare data for the PDF table
     final requestData = await Future.wait(
       requests.map((request) async {
-        final item = await _firestoreService.getItemById(request.itemId);
+        String itemName;
+        String category;
+        if (request.itemId.isNotEmpty) {
+          final item = await _firestoreService.getItemById(request.itemId);
+          itemName = item?.name ?? request.itemName;
+          category = item?.category ?? 'N/A';
+        } else {
+          itemName = request.itemName;
+          category = 'N/A';
+        }
         final user = await _firestoreService.getUser(request.requesterId);
         return [
-          item?.name ?? request.itemName,
+          itemName,
           request.quantity.toString(),
-          item?.category ?? 'N/A',
+          category,
           user?.email ?? 'Unknown',
           request.status,
           request.purpose ?? 'N/A',
