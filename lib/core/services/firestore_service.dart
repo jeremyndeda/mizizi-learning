@@ -37,7 +37,7 @@ class FirestoreService {
   // Stream to get all item requests
   Stream<List<ItemRequest>> getAllItemRequests() {
     return _firestore
-        .collection('requests')
+        .collection('item_requests')
         .snapshots()
         .map(
           (snapshot) =>
