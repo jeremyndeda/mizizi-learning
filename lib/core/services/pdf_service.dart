@@ -310,4 +310,174 @@ class PdfService {
     await file.writeAsBytes(await pdf.save());
     return file;
   }
+
+  /// Generates a General Items Request Report PDF
+  /// Supports filtering by userId or all users, with totals per item
+  Future<File> generateGeneralItemsReport({
+    String? userId,
+    String? userName,
+    DateTime? specificDate,
+    List<DateTime>? dateRange,
+  }) async {
+    final pdf = pw.Document();
+    final directory = await getTemporaryDirectory();
+    final filePath =
+        '${directory.path}/general_items_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final file = File(filePath);
+
+    // Fetch all item requests
+    final allRequests = await _firestoreService.getAllItemRequests().first;
+
+    // Filter requests by date and userId if needed
+    List<ItemRequest> filteredRequests = allRequests;
+    if (specificDate != null) {
+      final startUtc =
+          DateTime(
+            specificDate.year,
+            specificDate.month,
+            specificDate.day,
+          ).toUtc();
+      final endUtc = startUtc.add(const Duration(days: 1));
+      filteredRequests =
+          allRequests
+              .where(
+                (r) =>
+                    r.createdAt.isAfter(startUtc) &&
+                    r.createdAt.isBefore(endUtc),
+              )
+              .toList();
+    } else if (dateRange != null && dateRange.length == 2) {
+      final startUtc = dateRange[0].toUtc();
+      final endUtc = dateRange[1].add(const Duration(days: 1)).toUtc();
+      filteredRequests =
+          allRequests
+              .where(
+                (r) =>
+                    r.createdAt.isAfter(startUtc) &&
+                    r.createdAt.isBefore(endUtc),
+              )
+              .toList();
+    }
+
+    if (userId != null) {
+      filteredRequests =
+          filteredRequests.where((r) => r.requesterId == userId).toList();
+    }
+
+    // Prepare request data
+    final requestData = await Future.wait(
+      filteredRequests.map((request) async {
+        final generalItem = await _firestoreService.getGeneralItemById(
+          request.itemId,
+        );
+        final user = await _firestoreService.getUser(request.requesterId);
+        return {
+          'itemName': generalItem?.name ?? request.itemName,
+          'packagingType': generalItem?.packagingType ?? 'N/A',
+          'quantity': request.quantity,
+          'user': user?.email ?? 'Unknown',
+          'status': request.status,
+          'createdAt': DateFormat('yyyy-MM-dd').format(request.createdAt),
+        };
+      }),
+    );
+
+    // Calculate totals per item
+    final itemTotals = <String, int>{};
+    for (var data in requestData) {
+      final itemName = data['itemName'] as String;
+      final quantity = data['quantity'] as int;
+      itemTotals[itemName] = (itemTotals[itemName] ?? 0) + quantity;
+    }
+
+    // Filters display text
+    final userFilter = userId != null ? 'User: $userName' : 'All Users';
+    final dateFilter =
+        specificDate != null
+            ? 'Date: ${DateFormat('yyyy-MM-dd').format(specificDate)}'
+            : (dateRange != null && dateRange.length == 2)
+            ? 'Date Range: ${DateFormat('yyyy-MM-dd').format(dateRange[0])} to ${DateFormat('yyyy-MM-dd').format(dateRange[1])}'
+            : 'All Dates';
+
+    // Build PDF content
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        build:
+            (context) => [
+              pw.Header(
+                level: 0,
+                child: pw.Text(
+                  'General Items Request Report',
+                  style: pw.TextStyle(fontSize: 24),
+                ),
+              ),
+              pw.Paragraph(text: userFilter),
+              pw.Paragraph(text: dateFilter),
+              pw.TableHelper.fromTextArray(
+                headers: [
+                  'Item',
+                  'Packaging',
+                  'Quantity',
+                  'User',
+                  'Status',
+                  'Created At',
+                ],
+                data:
+                    requestData
+                        .map(
+                          (data) => [
+                            data['itemName'],
+                            data['packagingType'],
+                            data['quantity'].toString(),
+                            data['user'],
+                            data['status'],
+                            data['createdAt'],
+                          ],
+                        )
+                        .toList(),
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  fontSize: 10,
+                ),
+                cellStyle: const pw.TextStyle(fontSize: 9),
+                cellAlignment: pw.Alignment.centerLeft,
+              ),
+              pw.SizedBox(height: 20),
+              pw.Header(
+                level: 1,
+                child: pw.Text(
+                  'Item Totals',
+                  style: pw.TextStyle(fontSize: 18),
+                ),
+              ),
+              pw.TableHelper.fromTextArray(
+                headers: ['Item', 'Total Quantity'],
+                data:
+                    itemTotals.entries
+                        .map((e) => [e.key, e.value.toString()])
+                        .toList(),
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  fontSize: 10,
+                ),
+                cellStyle: const pw.TextStyle(fontSize: 9),
+                cellAlignment: pw.Alignment.centerLeft,
+              ),
+              pw.SizedBox(height: 20),
+              pw.Center(
+                child: pw.Text(
+                  'Mizizi Learning Hub\nLavington, Nairobi, Kenya\nGenerated on: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}\nAny Questions? admin@mizizilearning.com',
+                  textAlign: pw.TextAlign.center,
+                  style: const pw.TextStyle(fontSize: 10),
+                ),
+              ),
+            ],
+      ),
+    );
+
+    // Save PDF to file
+    await file.writeAsBytes(await pdf.save());
+    return file;
+  }
 }

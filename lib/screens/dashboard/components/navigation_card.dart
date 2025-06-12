@@ -6,12 +6,14 @@ class NavigationCard extends StatelessWidget {
   final String title;
   final IconData icon;
   final VoidCallback onTap;
+  final Color backgroundColor; // Added backgroundColor parameter
 
   const NavigationCard({
     super.key,
     required this.title,
     required this.icon,
     required this.onTap,
+    required this.backgroundColor, // Made backgroundColor required
   });
 
   @override
@@ -24,6 +26,7 @@ class NavigationCard extends StatelessWidget {
       child: Card(
         elevation: 3,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        color: backgroundColor, // Apply the background color to the card
         child: InkWell(
           onTap: onTap,
           child: Padding(

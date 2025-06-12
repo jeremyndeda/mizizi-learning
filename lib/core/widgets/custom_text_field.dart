@@ -7,7 +7,8 @@ class CustomTextField extends StatelessWidget {
   final bool obscureText;
   final TextInputType? keyboardType;
   final void Function(String)? onChanged;
-  final FocusNode? focusNode; // ✅ Add the focusNode
+  final FocusNode? focusNode;
+  final Widget? suffixIcon; // Add suffixIcon parameter
 
   const CustomTextField({
     super.key,
@@ -16,7 +17,8 @@ class CustomTextField extends StatelessWidget {
     this.obscureText = false,
     this.keyboardType,
     this.onChanged,
-    this.focusNode, // ✅ Accept focusNode as a named parameter
+    this.focusNode,
+    this.suffixIcon, // Accept suffixIcon as a named parameter
   });
 
   @override
@@ -26,7 +28,7 @@ class CustomTextField extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       onChanged: onChanged,
-      focusNode: focusNode, // ✅ Use the focusNode here
+      focusNode: focusNode,
       decoration: InputDecoration(
         labelText: labelText,
         labelStyle: const TextStyle(color: AppColors.primaryGreen),
@@ -40,6 +42,7 @@ class CustomTextField extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.primaryGreen),
         ),
+        suffixIcon: suffixIcon, // Use the suffixIcon here
       ),
     );
   }

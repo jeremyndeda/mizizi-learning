@@ -3,6 +3,7 @@ import '../models/inventory_item.dart';
 import '../models/user_model.dart';
 import '../models/notification_model.dart';
 import '../models/item_request.dart';
+import '../models/general_item.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -100,8 +101,6 @@ class FirestoreService {
       await sendUserToFirestore(uid, email, name: name, role: role);
     }
   }
-
-  // Get user data by UID
 
   // Get user by email
   Future<UserModel?> getUserByEmail(String email) async {
@@ -332,5 +331,41 @@ class FirestoreService {
         .map((doc) => doc['email'] as String)
         .where((email) => email.toLowerCase().contains(query.toLowerCase()))
         .toList();
+  }
+
+  // ---------------- General Items ----------------
+
+  Future<void> addGeneralItem(GeneralItem item) async {
+    await _firestore.collection('general_items').doc(item.id).set(item.toMap());
+  }
+
+  Future<void> updateGeneralItem(String id, Map<String, dynamic> data) async {
+    await _firestore.collection('general_items').doc(id).update(data);
+  }
+
+  Future<void> deleteGeneralItem(String id) async {
+    await _firestore.collection('general_items').doc(id).delete();
+  }
+
+  Stream<List<GeneralItem>> getAllGeneralItems() {
+    return _firestore
+        .collection('general_items')
+        .orderBy('name')
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => GeneralItem.fromMap(doc.data(), doc.id))
+                  .toList(),
+        );
+  }
+
+  Future<GeneralItem?> getGeneralItemById(String id) async {
+    if (id.isEmpty) return null;
+    final doc = await _firestore.collection('general_items').doc(id).get();
+    if (doc.exists) {
+      return GeneralItem.fromMap(doc.data()!, id);
+    }
+    return null;
   }
 }

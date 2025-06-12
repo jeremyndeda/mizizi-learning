@@ -4,16 +4,18 @@ import '../constants/typography.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed; // Changed to nullable
   final bool isLoading;
   final Color backgroundColor;
+  final Color foregroundColor;
 
   const CustomButton({
     super.key,
     required this.text,
-    required this.onPressed,
+    this.onPressed, // Now nullable, not required
     this.isLoading = false,
     this.backgroundColor = AppColors.primaryGreen,
+    this.foregroundColor = AppColors.white,
   });
 
   @override
@@ -22,7 +24,7 @@ class CustomButton extends StatelessWidget {
       onPressed: isLoading ? null : onPressed,
       style: ElevatedButton.styleFrom(
         backgroundColor: backgroundColor,
-        foregroundColor: AppColors.white,
+        foregroundColor: foregroundColor,
         minimumSize: const Size(
           120,
           50,
@@ -32,15 +34,20 @@ class CustomButton extends StatelessWidget {
       ),
       child:
           isLoading
-              ? const SizedBox(
+              ? SizedBox(
                 height: 20,
                 width: 20,
                 child: CircularProgressIndicator(
-                  color: AppColors.white,
+                  color: foregroundColor,
                   strokeWidth: 2,
                 ),
               )
-              : Text(text, style: AppTypography.buttonText),
+              : Text(
+                text,
+                style: AppTypography.buttonText.copyWith(
+                  color: foregroundColor,
+                ),
+              ),
     );
   }
 }

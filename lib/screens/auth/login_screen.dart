@@ -21,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
   final FirestoreService _firestoreService = FirestoreService();
   bool _rememberMe = false;
+  bool _obscureText = true;
   String _error = '';
   bool _isLoading = false;
 
@@ -44,6 +45,10 @@ class _LoginScreenState extends State<LoginScreen> {
           user.email!,
         );
 
+        if (_rememberMe) {
+          await _authService.setLoggedInStatus(true);
+        }
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const DashboardScreen()),
@@ -55,6 +60,12 @@ class _LoginScreenState extends State<LoginScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _toggleObscureText() {
+    setState(() {
+      _obscureText = !_obscureText;
+    });
   }
 
   @override
@@ -81,7 +92,14 @@ class _LoginScreenState extends State<LoginScreen> {
               CustomTextField(
                 controller: _passwordController,
                 labelText: 'Password',
-                obscureText: true,
+                obscureText: _obscureText,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureText ? Icons.visibility_off : Icons.visibility,
+                    color: AppColors.primaryGreen,
+                  ),
+                  onPressed: _toggleObscureText,
+                ),
               ),
               const SizedBox(height: 12),
               Row(
