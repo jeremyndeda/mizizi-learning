@@ -24,8 +24,10 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
   final _amountController = TextEditingController();
+  final _lowStockThresholdController = TextEditingController();
   String? _condition = 'Good';
   String _category = 'Stationery';
+  String _userRole = 'user';
   final FirestoreService _firestoreService = FirestoreService();
   final NotificationService _notificationService = NotificationService();
   final AuthService _authService = AuthService();
@@ -41,6 +43,13 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
   @override
   void initState() {
     super.initState();
+    // Fetch user role
+    _authService.getUserRole().then((role) {
+      setState(() {
+        _userRole = role;
+      });
+    });
+
     if (widget.item != null) {
       final currentUserId = _authService.currentUser?.uid;
       if (currentUserId != widget.item!.userId) {
@@ -60,10 +69,13 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
       _descriptionController.text = widget.item!.description ?? '';
       _locationController.text = widget.item!.location ?? '';
       _amountController.text = widget.item!.amount.toString();
+      _lowStockThresholdController.text =
+          widget.item!.lowStockThreshold.toString();
       _condition = widget.item!.condition;
       _category = widget.item!.category;
     } else {
       _amountController.text = '1';
+      _lowStockThresholdController.text = '0'; // Default to 0
     }
   }
 
@@ -72,19 +84,47 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
   }
 
   void _saveItem() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Item name is required.'),
+          backgroundColor: AppColors.errorRed,
+        ),
+      );
+      return;
+    }
+
     final amount = int.tryParse(_amountController.text.trim()) ?? 1;
+    final lowStockThreshold =
+        int.tryParse(_lowStockThresholdController.text.trim()) ?? 0;
+    if (_userRole == 'admin' && lowStockThreshold < 0) {
+      // Allow zero
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Low stock threshold cannot be negative.'),
+          backgroundColor: AppColors.errorRed,
+        ),
+      );
+      return;
+    }
+
     final currentUser = _authService.currentUser!;
     final item = InventoryItem(
       id: widget.item?.id ?? const Uuid().v4(),
-      name: _nameController.text.trim(),
+      name: name,
       condition: _requiresCondition() ? _condition : null,
       category: _category,
       userId: widget.userId,
       userEmail: currentUser.email!,
-      createdAt: DateTime.now(),
+      createdAt: widget.item?.createdAt ?? DateTime.now(),
       description: _descriptionController.text.trim(),
       location: _locationController.text.trim(),
       amount: amount,
+      lowStockThreshold:
+          _userRole == 'admin'
+              ? lowStockThreshold
+              : (widget.item?.lowStockThreshold ?? 0), // Default to 0
     );
 
     if (widget.item == null) {
@@ -139,6 +179,14 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
               labelText: 'Amount',
               keyboardType: TextInputType.number,
             ),
+            if (_userRole == 'admin') ...[
+              const SizedBox(height: 16),
+              CustomTextField(
+                controller: _lowStockThresholdController,
+                labelText: 'Low Stock Threshold',
+                keyboardType: TextInputType.number,
+              ),
+            ],
             const SizedBox(height: 16),
             if (_requiresCondition()) ...[
               DropdownButtonFormField<String>(
@@ -186,6 +234,7 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
                     'Accessories',
                     'Food Items',
                     'Other',
+                    'Personal',
                   ].map((category) {
                     return DropdownMenuItem(
                       value: category,
@@ -218,6 +267,7 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
     _descriptionController.dispose();
     _locationController.dispose();
     _amountController.dispose();
+    _lowStockThresholdController.dispose();
     super.dispose();
   }
 }

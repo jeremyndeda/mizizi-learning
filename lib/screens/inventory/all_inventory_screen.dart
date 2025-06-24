@@ -3,6 +3,7 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/constants/typography.dart';
 import '../../core/models/inventory_item.dart';
+import '../../core/models/user_model.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/firestore_service.dart';
 import '../../core/services/notification_service.dart';
@@ -20,111 +21,13 @@ class AllInventoryScreen extends StatefulWidget {
 
 class _AllInventoryScreenState extends State<AllInventoryScreen> {
   final AuthService _authService = AuthService();
-  final FirestoreService _firestoreService = FirestoreService();
-  final NotificationService _notificationService = NotificationService();
   final PdfService _pdfService = PdfService();
   final TextEditingController _searchController = TextEditingController();
-  int _currentPage = 0;
-  final int _itemsPerPage = 5;
-  String _searchQuery = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text.toLowerCase();
-      });
-    });
-  }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
-  }
-
-  Future<void> _confirmDelete(
-    BuildContext context,
-    String itemId,
-    String itemName,
-    String userId,
-  ) async {
-    final bool? shouldDelete = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Text('Confirm Deletion', style: AppTypography.heading2),
-            content: Text(
-              'Are you sure you want to delete "$itemName"? This action cannot be undone.',
-              style: AppTypography.bodyText,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete', style: AppTypography.buttonText),
-              ),
-            ],
-          ),
-    );
-
-    if (shouldDelete == true) {
-      try {
-        await _firestoreService.deleteInventoryItem(itemId);
-        await _notificationService.sendInventoryNotification(
-          userId,
-          'Item Deleted',
-          'Item $itemName has been deleted.',
-        );
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '"$itemName" deleted successfully',
-                style: AppTypography.bodyText,
-              ),
-              backgroundColor: const Color(0xFF4CAF50),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Error deleting item: $e',
-                style: AppTypography.bodyText,
-              ),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          );
-        }
-      }
-    }
   }
 
   @override
@@ -217,7 +120,7 @@ class _AllInventoryScreenState extends State<AllInventoryScreen> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'Search by item name',
+                    hintText: 'Search items...',
                     hintStyle: AppTypography.caption.copyWith(
                       color: Colors.grey,
                     ),
@@ -230,17 +133,22 @@ class _AllInventoryScreenState extends State<AllInventoryScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.green),
+                      borderSide: const BorderSide(color: Color(0xFF4CAF50)),
                     ),
-                    suffixIcon:
-                        _searchQuery.isNotEmpty
-                            ? IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.grey),
-                              onPressed: () {
-                                _searchController.clear();
-                              },
-                            )
-                            : null,
+                    suffixIcon: ValueListenableBuilder(
+                      valueListenable: _searchController,
+                      builder:
+                          (context, TextEditingValue value, child) =>
+                              value.text.isNotEmpty
+                                  ? IconButton(
+                                    icon: const Icon(
+                                      Icons.clear,
+                                      color: Colors.grey,
+                                    ),
+                                    onPressed: () => _searchController.clear(),
+                                  )
+                                  : const SizedBox.shrink(),
+                    ),
                     contentPadding: const EdgeInsets.symmetric(
                       vertical: 14,
                       horizontal: 16,
@@ -250,220 +158,326 @@ class _AllInventoryScreenState extends State<AllInventoryScreen> {
                 ),
               ),
               Expanded(
-                child: StreamBuilder<List<InventoryItem>>(
-                  stream: _firestoreService.getAllInventory(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Text(
-                          'Error: ${snapshot.error}',
-                          style: AppTypography.bodyText.copyWith(
-                            color: Colors.red,
+                child: ValueListenableBuilder(
+                  valueListenable: _searchController,
+                  builder:
+                      (context, TextEditingValue value, child) =>
+                          InventoryItemsList(
+                            searchQuery: value.text.toLowerCase(),
+                            authService: _authService,
                           ),
-                        ),
-                      );
-                    }
-                    if (!snapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    final items =
-                        snapshot.data!
-                            .where(
-                              (item) => item.name.toLowerCase().contains(
-                                _searchQuery,
-                              ),
-                            )
-                            .toList();
-                    final totalItems = items.length;
-                    final start = _currentPage * _itemsPerPage;
-                    final end = (_currentPage + 1) * _itemsPerPage;
-                    final pagedItems = items.sublist(
-                      start,
-                      end > totalItems ? totalItems : end,
-                    );
-
-                    if (pagedItems.isEmpty) {
-                      return Center(
-                        child: Text(
-                          _searchQuery.isEmpty
-                              ? 'No items found.'
-                              : 'No items match your search.',
-                          style: AppTypography.bodyText.copyWith(
-                            color: Colors.grey,
-                          ),
-                        ),
-                      );
-                    }
-
-                    return Column(
-                      children: [
-                        Expanded(
-                          child: AnimationLimiter(
-                            child: ListView.builder(
-                              padding: const EdgeInsets.all(16.0),
-                              itemCount: pagedItems.length,
-                              itemBuilder: (context, index) {
-                                final item = pagedItems[index];
-                                return AnimationConfiguration.staggeredList(
-                                  position: index,
-                                  duration: const Duration(milliseconds: 375),
-                                  child: SlideAnimation(
-                                    verticalOffset: 50.0,
-                                    child: FadeInAnimation(
-                                      child: InventoryCard(
-                                        item: item,
-                                        currentUserRole: role,
-                                        onEdit: () {
-                                          if (_authService.currentUser?.uid ==
-                                              item.userId) {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder:
-                                                    (_) => AddEditItemScreen(
-                                                      userId: item.userId,
-                                                      item: item,
-                                                    ),
-                                              ),
-                                            );
-                                          } else {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: const Text(
-                                                  'You can only edit your own items',
-                                                  style: AppTypography.bodyText,
-                                                ),
-                                                backgroundColor: Colors.red,
-                                                behavior:
-                                                    SnackBarBehavior.floating,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                        onDelete:
-                                            () => _confirmDelete(
-                                              context,
-                                              item.id,
-                                              item.name,
-                                              item.userId,
-                                            ),
-                                        onIssue: () {
-                                          if ((role == 'admin' ||
-                                                  role == 'care') &&
-                                              _authService.currentUser?.uid ==
-                                                  item.userId &&
-                                              item.amount > 0) {
-                                            showDialog(
-                                              context: context,
-                                              builder:
-                                                  (context) =>
-                                                      IssueDialog(item: item),
-                                            );
-                                          } else {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: const Text(
-                                                  'You can only issue your own items with available amount',
-                                                  style: AppTypography.bodyText,
-                                                ),
-                                                backgroundColor: Colors.red,
-                                                behavior:
-                                                    SnackBarBehavior.floating,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0,
-                            vertical: 8.0,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              ElevatedButton(
-                                onPressed:
-                                    _currentPage > 0
-                                        ? () => setState(() => _currentPage--)
-                                        : null,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      _currentPage > 0
-                                          ? const Color(0xFF4CAF50)
-                                          : Colors.grey[300],
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Previous',
-                                  style: AppTypography.buttonText,
-                                ),
-                              ),
-                              Text(
-                                'Page ${_currentPage + 1} of ${(totalItems / _itemsPerPage).ceil()}',
-                                style: AppTypography.bodyText,
-                              ),
-                              ElevatedButton(
-                                onPressed:
-                                    end < totalItems
-                                        ? () => setState(() => _currentPage++)
-                                        : null,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      end < totalItems
-                                          ? const Color(0xFF4CAF50)
-                                          : Colors.grey[300],
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Next',
-                                  style: AppTypography.buttonText,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  },
                 ),
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+}
+
+class InventoryItemsList extends StatefulWidget {
+  final String searchQuery;
+  final AuthService authService;
+
+  const InventoryItemsList({
+    super.key,
+    required this.searchQuery,
+    required this.authService,
+  });
+
+  @override
+  State<InventoryItemsList> createState() => _InventoryItemsListState();
+}
+
+class _InventoryItemsListState extends State<InventoryItemsList> {
+  final FirestoreService _firestoreService = FirestoreService();
+  final NotificationService _notificationService = NotificationService();
+  int _currentPage = 0;
+  final int _itemsPerPage = 5;
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    String itemId,
+    String itemName,
+    String userId,
+  ) async {
+    final bool? shouldDelete = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Text('Confirm Deletion', style: AppTypography.heading2),
+            content: Text(
+              'Are you sure you want to delete "$itemName"? This action cannot be undone.',
+              style: AppTypography.bodyText,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete', style: AppTypography.buttonText),
+              ),
+            ],
+          ),
+    );
+
+    if (shouldDelete == true) {
+      try {
+        await _firestoreService.deleteInventoryItem(itemId);
+        await _notificationService.sendInventoryNotification(
+          userId,
+          'Item Deleted',
+          'Item $itemName has been deleted.',
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '"$itemName" deleted successfully',
+                style: AppTypography.bodyText,
+              ),
+              backgroundColor: const Color(0xFF4CAF50),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Error deleting item: $e',
+                style: AppTypography.bodyText,
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<InventoryItem>>(
+      stream: _firestoreService.getAllInventory(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error: ${snapshot.error}',
+              style: AppTypography.bodyText.copyWith(color: Colors.red),
+            ),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final items =
+            snapshot.data!
+                .where(
+                  (item) =>
+                      item.name.toLowerCase().contains(widget.searchQuery),
+                )
+                .toList();
+        final totalItems = items.length;
+        final start = _currentPage * _itemsPerPage;
+        final end = (_currentPage + 1) * _itemsPerPage;
+        final pagedItems = items.sublist(
+          start,
+          end > totalItems ? totalItems : end,
+        );
+
+        if (pagedItems.isEmpty) {
+          return Center(
+            child: Text(
+              widget.searchQuery.isEmpty
+                  ? 'No items found.'
+                  : 'No items match your search.',
+              style: AppTypography.bodyText.copyWith(color: Colors.grey),
+            ),
+          );
+        }
+
+        return Column(
+          children: [
+            Expanded(
+              child: AnimationLimiter(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16.0),
+                  itemCount: pagedItems.length,
+                  itemBuilder: (context, index) {
+                    final item = pagedItems[index];
+                    return AnimationConfiguration.staggeredList(
+                      position: index,
+                      duration: const Duration(milliseconds: 375),
+                      child: SlideAnimation(
+                        verticalOffset: 50.0,
+                        child: FadeInAnimation(
+                          child: FutureBuilder<UserModel?>(
+                            future: _firestoreService.getUser(item.userId),
+                            builder: (context, userSnapshot) {
+                              String ownerName = 'Unknown';
+                              if (userSnapshot.hasData &&
+                                  userSnapshot.data != null) {
+                                ownerName =
+                                    userSnapshot.data!.name ??
+                                    userSnapshot.data!.email;
+                              }
+                              final isOwner =
+                                  widget.authService.currentUser?.uid ==
+                                  item.userId;
+                              return InventoryCard(
+                                item: item,
+                                currentUserRole: 'admin',
+                                ownerName: ownerName,
+                                onEdit:
+                                    isOwner
+                                        ? () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder:
+                                                  (_) => AddEditItemScreen(
+                                                    userId: item.userId,
+                                                    item: item,
+                                                  ),
+                                            ),
+                                          );
+                                        }
+                                        : null,
+                                onDelete:
+                                    isOwner
+                                        ? () => _confirmDelete(
+                                          context,
+                                          item.id,
+                                          item.name,
+                                          item.userId,
+                                        )
+                                        : null,
+                                onIssue: () {
+                                  if (item.amount > 0 &&
+                                      isOwner &&
+                                      ['admin', 'care'].contains(
+                                        widget.authService.currentUser?.uid,
+                                      )) {
+                                    showDialog(
+                                      context: context,
+                                      builder:
+                                          (context) => IssueDialog(item: item),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text(
+                                          'You can only issue your own items with available amount',
+                                          style: AppTypography.bodyText,
+                                        ),
+                                        backgroundColor: Colors.red,
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  ElevatedButton(
+                    onPressed:
+                        _currentPage > 0
+                            ? () => setState(() => _currentPage--)
+                            : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          _currentPage > 0
+                              ? const Color(0xFF4CAF50)
+                              : Colors.grey[300],
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                    ),
+                    child: const Text(
+                      'Previous',
+                      style: AppTypography.buttonText,
+                    ),
+                  ),
+                  Text(
+                    'Page ${_currentPage + 1} of ${(totalItems / _itemsPerPage).ceil()}',
+                    style: AppTypography.bodyText,
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        end < totalItems
+                            ? () => setState(() => _currentPage++)
+                            : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          end < totalItems
+                              ? const Color(0xFF4CAF50)
+                              : Colors.grey[300],
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                    ),
+                    child: const Text('Next', style: AppTypography.buttonText),
+                  ),
+                ],
+              ),
+            ),
+          ],
         );
       },
     );

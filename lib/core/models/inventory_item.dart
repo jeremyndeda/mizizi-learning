@@ -11,6 +11,7 @@ class InventoryItem {
   final String? description;
   final String? location;
   final int amount;
+  final int lowStockThreshold;
 
   InventoryItem({
     required this.id,
@@ -23,6 +24,7 @@ class InventoryItem {
     this.description,
     this.location,
     this.amount = 1,
+    this.lowStockThreshold = 5,
   });
 
   factory InventoryItem.fromMap(Map<String, dynamic> map, String id) {
@@ -37,6 +39,7 @@ class InventoryItem {
       description: map['description'],
       location: map['location'],
       amount: (map['amount'] as int?) ?? 1,
+      lowStockThreshold: (map['lowStockThreshold'] as int?) ?? 5,
     );
   }
 
@@ -51,6 +54,7 @@ class InventoryItem {
       'description': description,
       'location': location,
       'amount': amount,
+      'lowStockThreshold': lowStockThreshold,
     };
   }
 }

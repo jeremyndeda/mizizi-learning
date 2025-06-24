@@ -210,6 +210,82 @@ class _AddUserScreenState extends State<AddUserScreen> {
     );
   }
 
+  Future<void> _resetPassword(String email) async {
+    try {
+      await _authService.sendPasswordResetEmail(email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Password reset email sent to $email',
+              style: AppTypography.bodyText,
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error sending password reset email: $e',
+              style: AppTypography.bodyText,
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showResetPasswordDialog(UserModel user) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Text('Reset Password', style: AppTypography.heading2),
+            content: Text(
+              'Are you sure you want to send a password reset email to ${user.email}?',
+              style: AppTypography.bodyText,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Cancel',
+                  style: AppTypography.bodyText.copyWith(color: Colors.grey),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  await _resetPassword(user.email);
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4CAF50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text('Send', style: AppTypography.buttonText),
+              ),
+            ],
+          ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -273,7 +349,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
                                   ),
                                   prefixIcon: const Icon(
                                     Icons.search,
-                                    color: Colors.white,
+                                    color: Colors.grey,
                                   ),
                                   filled: true,
                                   fillColor: Colors.white,
@@ -354,6 +430,11 @@ class _AddUserScreenState extends State<AddUserScreen> {
                                               onEdit:
                                                   () =>
                                                       _showEditUserDialog(user),
+                                              onResetPassword:
+                                                  () =>
+                                                      _showResetPasswordDialog(
+                                                        user,
+                                                      ),
                                             ),
                                           ),
                                         ),
@@ -678,7 +759,7 @@ class _EditUserDialogState extends State<EditUserDialog> {
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(),
+                      borderSide: BorderSide.none,
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -783,8 +864,14 @@ class _EditUserDialogState extends State<EditUserDialog> {
 class UserCard extends StatelessWidget {
   final UserModel user;
   final VoidCallback onEdit;
+  final VoidCallback onResetPassword;
 
-  const UserCard({super.key, required this.user, required this.onEdit});
+  const UserCard({
+    super.key,
+    required this.user,
+    required this.onEdit,
+    required this.onResetPassword,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -837,6 +924,12 @@ class UserCard extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.edit, color: Colors.blue),
                 onPressed: onEdit,
+                tooltip: 'Edit User',
+              ),
+              IconButton(
+                icon: const Icon(Icons.lock_reset, color: Colors.orange),
+                onPressed: onResetPassword,
+                tooltip: 'Reset Password',
               ),
             ],
           ),

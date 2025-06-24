@@ -7,15 +7,17 @@ import '../services/auth_service.dart';
 class InventoryCard extends StatelessWidget {
   final InventoryItem item;
   final String currentUserRole;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  final VoidCallback onIssue;
+  final String ownerName;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final VoidCallback? onIssue;
   final Widget? child;
 
   const InventoryCard({
     super.key,
     required this.item,
     required this.currentUserRole,
+    required this.ownerName,
     required this.onEdit,
     required this.onDelete,
     required this.onIssue,
@@ -52,29 +54,32 @@ class InventoryCard extends StatelessWidget {
                   'Location: ${item.location}',
                   style: AppTypography.bodyText,
                 ),
-              Text(
-                'Owner: ${item.userEmail ?? 'Unknown'}',
-                style: AppTypography.bodyText,
-              ),
+              Text('Owner: $ownerName', style: AppTypography.bodyText),
+              if (currentUserRole == 'admin')
+                Text(
+                  'Low Stock Threshold: ${item.lowStockThreshold}',
+                  style: AppTypography.bodyText,
+                ),
               if (child != null) ...[const SizedBox(height: 8), child!],
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: AppColors.primaryGreen),
-                    onPressed: isOwner ? onEdit : null,
-                    tooltip:
-                        isOwner ? 'Edit' : 'You can only edit your own items',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: AppColors.errorRed),
-                    onPressed: isOwner ? onDelete : null,
-                    tooltip:
-                        isOwner
-                            ? 'Delete'
-                            : 'You can only delete your own items',
-                  ),
+                  if (isOwner)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.edit,
+                        color: AppColors.primaryGreen,
+                      ),
+                      onPressed: onEdit,
+                      tooltip: 'Edit',
+                    ),
+                  if (isOwner)
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: AppColors.errorRed),
+                      onPressed: onDelete,
+                      tooltip: 'Delete',
+                    ),
                   if (canIssue && isOwner && item.amount > 0)
                     ElevatedButton(
                       onPressed: onIssue,

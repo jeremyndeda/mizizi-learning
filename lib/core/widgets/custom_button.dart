@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
 import '../constants/colors.dart';
-import '../constants/typography.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
-  final VoidCallback? onPressed; // Changed to nullable
+  final VoidCallback? onPressed;
   final bool isLoading;
   final Color backgroundColor;
   final Color foregroundColor;
+  final Widget? icon;
 
   const CustomButton({
     super.key,
     required this.text,
-    this.onPressed, // Now nullable, not required
+    this.onPressed,
     this.isLoading = false,
     this.backgroundColor = AppColors.primaryGreen,
     this.foregroundColor = AppColors.white,
+    this.icon,
   });
 
   @override
@@ -25,10 +26,7 @@ class CustomButton extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: backgroundColor,
         foregroundColor: foregroundColor,
-        minimumSize: const Size(
-          120,
-          50,
-        ), // Finite width to prevent layout issues
+        minimumSize: const Size(120, 50),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 5,
       ),
@@ -42,11 +40,19 @@ class CustomButton extends StatelessWidget {
                   strokeWidth: 2,
                 ),
               )
-              : Text(
-                text,
-                style: AppTypography.buttonText.copyWith(
-                  color: foregroundColor,
-                ),
+              : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[icon!, const SizedBox(width: 8)],
+                  Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: foregroundColor,
+                    ),
+                  ),
+                ],
               ),
     );
   }

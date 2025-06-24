@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:uuid/uuid.dart';
 import '../models/inventory_item.dart';
 import '../models/user_model.dart';
 import '../models/notification_model.dart';
@@ -7,6 +8,54 @@ import '../models/general_item.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Send notification for inventory updates
+  Future<void> sendInventoryNotification(
+    String userId,
+    String title,
+    String body, {
+    String? type,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final notification = NotificationModel(
+        id: const Uuid().v4(),
+        title: title,
+        body: body,
+        createdAt: DateTime.now(),
+        userId: userId,
+        isRead: false,
+        type: type,
+        data: data,
+      );
+      await addNotification(notification);
+    } catch (e) {
+      throw Exception('Error sending notification: $e');
+    }
+  }
+
+  // Send notification to multiple users
+  Future<void> sendInventoryNotificationToUsers(
+    List<String> userIds,
+    String title,
+    String body, {
+    String? type,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      for (final userId in userIds) {
+        await sendInventoryNotification(
+          userId,
+          title,
+          body,
+          type: type,
+          data: data,
+        );
+      }
+    } catch (e) {
+      throw Exception('Error sending notifications to multiple users: $e');
+    }
+  }
 
   // Stream to get all inventory items
   Stream<List<InventoryItem>> getAllInventory() {
@@ -21,31 +70,82 @@ class FirestoreService {
         );
   }
 
-  // Stream to get inventory items for a specific user
+  // Stream to get inventory items for a user and their linked users
   Stream<List<InventoryItem>> getUserInventory(String userId) {
-    return _firestore
-        .collection('inventory')
-        .where('userId', isEqualTo: userId)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
-                  .toList(),
-        );
+    return _firestore.collection('users').doc(userId).snapshots().asyncMap((
+      userDoc,
+    ) async {
+      final userData = userDoc.data();
+      if (userData == null) return [];
+
+      final linkedUserIds = List<String>.from(userData['linkedUserIds'] ?? []);
+      final allUserIds = [userId, ...linkedUserIds];
+
+      final snapshot =
+          await _firestore
+              .collection('inventory')
+              .where('userId', whereIn: allUserIds)
+              .get();
+
+      return snapshot.docs
+          .map((doc) => InventoryItem.fromMap(doc.data(), doc.id))
+          .toList();
+    });
   }
 
   // Stream to get all item requests
   Stream<List<ItemRequest>> getAllItemRequests() {
     return _firestore
         .collection('item_requests')
+        .withConverter<ItemRequest>(
+          fromFirestore:
+              (snapshot, _) =>
+                  ItemRequest.fromMap(snapshot.data()!, snapshot.id),
+          toFirestore: (item, _) => item.toMap(),
+        )
         .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map((doc) => ItemRequest.fromMap(doc.data(), doc.id))
-                  .toList(),
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
+  }
+
+  // Stream to get filtered item requests
+  Stream<List<ItemRequest>> streamFilteredItemRequests({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? status,
+    String? requesterId,
+  }) {
+    Query<ItemRequest> query = _firestore
+        .collection('item_requests')
+        .withConverter<ItemRequest>(
+          fromFirestore:
+              (snapshot, _) =>
+                  ItemRequest.fromMap(snapshot.data()!, snapshot.id),
+          toFirestore: (item, _) => item.toMap(),
         );
+
+    if (requesterId != null) {
+      query = query.where('requesterId', isEqualTo: requesterId);
+    }
+    if (status != null && status != 'All') {
+      query = query.where('status', isEqualTo: status.toLowerCase());
+    }
+    if (startDate != null) {
+      query = query.where(
+        'createdAt',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
+      );
+    }
+    if (endDate != null) {
+      query = query.where(
+        'createdAt',
+        isLessThanOrEqualTo: Timestamp.fromDate(endDate),
+      );
+    }
+
+    return query
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
   }
 
   // Get a single inventory item by ID
@@ -78,6 +178,7 @@ class FirestoreService {
     String email, {
     String? name,
     String role = 'user',
+    List<String> linkedUserIds = const [],
   }) async {
     final usersRef = _firestore.collection('users');
     await usersRef.doc(uid).set({
@@ -86,6 +187,7 @@ class FirestoreService {
       'role': role,
       'name': name,
       'createdAt': FieldValue.serverTimestamp(),
+      'linkedUserIds': linkedUserIds,
     }, SetOptions(merge: true));
   }
 
@@ -95,10 +197,17 @@ class FirestoreService {
     String email, {
     String? name,
     String role = 'user',
+    List<String> linkedUserIds = const [],
   }) async {
     final userDoc = await _firestore.collection('users').doc(uid).get();
     if (!userDoc.exists) {
-      await sendUserToFirestore(uid, email, name: name, role: role);
+      await sendUserToFirestore(
+        uid,
+        email,
+        name: name,
+        role: role,
+        linkedUserIds: linkedUserIds,
+      );
     }
   }
 
@@ -122,6 +231,50 @@ class FirestoreService {
     await _firestore.collection('users').doc(uid).update(data);
   }
 
+  // Get all admin users
+  Future<List<UserModel>> getAdminUsers() async {
+    final snapshot =
+        await _firestore
+            .collection('users')
+            .where('role', isEqualTo: 'admin')
+            .get();
+    return snapshot.docs
+        .map((doc) => UserModel.fromMap(doc.data(), doc.id))
+        .toList();
+  }
+
+  // Add linked user
+  Future<void> linkUserAccount(String userId, String linkedUserId) async {
+    final userDoc = await _firestore.collection('users').doc(userId).get();
+    if (userDoc.exists) {
+      final currentLinkedIds = List<String>.from(
+        userDoc.data()!['linkedUserIds'] ?? [],
+      );
+      if (!currentLinkedIds.contains(linkedUserId)) {
+        currentLinkedIds.add(linkedUserId);
+        await _firestore.collection('users').doc(userId).update({
+          'linkedUserIds': currentLinkedIds,
+        });
+      }
+    }
+  }
+
+  // Remove linked user
+  Future<void> unlinkUserAccount(String userId, String linkedUserId) async {
+    final userDoc = await _firestore.collection('users').doc(userId).get();
+    if (userDoc.exists) {
+      final currentLinkedIds = List<String>.from(
+        userDoc.data()!['linkedUserIds'] ?? [],
+      );
+      if (currentLinkedIds.contains(linkedUserId)) {
+        currentLinkedIds.remove(linkedUserId);
+        await _firestore.collection('users').doc(userId).update({
+          'linkedUserIds': currentLinkedIds,
+        });
+      }
+    }
+  }
+
   // ---------------- Inventory ----------------
 
   Future<void> addInventoryItem(InventoryItem item) async {
@@ -129,7 +282,26 @@ class FirestoreService {
   }
 
   Future<void> updateInventoryItem(String id, Map<String, dynamic> data) async {
-    await _firestore.collection('inventory').doc(id).update(data);
+    final itemDoc = await _firestore.collection('inventory').doc(id).get();
+    if (itemDoc.exists) {
+      final currentItem = InventoryItem.fromMap(itemDoc.data()!, id);
+      final newAmount = data['amount'] as int? ?? currentItem.amount;
+      await _firestore.collection('inventory').doc(id).update(data);
+
+      // Check for low stock and notify admins
+      final newThreshold =
+          data['lowStockThreshold'] as int? ?? currentItem.lowStockThreshold;
+      if (newAmount <= newThreshold) {
+        final admins = await getAdminUsers();
+        await sendInventoryNotificationToUsers(
+          admins.map((admin) => admin.uid).toList(),
+          'Low Stock Alert',
+          'Item ${currentItem.name} has reached low stock (Amount: $newAmount, Threshold: $newThreshold).',
+          type: 'low_stock',
+          data: {'itemId': id},
+        );
+      }
+    }
   }
 
   Future<void> deleteInventoryItem(String id) async {
@@ -166,7 +338,10 @@ class FirestoreService {
               'createdAt',
               isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
             )
-            .where('createdAt', isLessThan: Timestamp.fromDate(endOfDay))
+            .where(
+              'createdAt',
+              isLessThanOrEqualTo: Timestamp.fromDate(endOfDay),
+            )
             .get();
 
     return snapshot.docs
@@ -252,6 +427,10 @@ class FirestoreService {
     if (itemId != null) data['itemId'] = itemId;
 
     await _firestore.collection('item_requests').doc(id).update(data);
+  }
+
+  Future<void> deleteItemRequest(String id) async {
+    await _firestore.collection('item_requests').doc(id).delete();
   }
 
   // ---------------- Notifications ----------------

@@ -29,58 +29,55 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
   final Map<String, TextEditingController> _quantityControllers = {};
   String _role = 'user';
   bool _isAddingItem = false;
-  bool _isEditing = false;
+  bool _isEditingItem = false;
   String? _editingItemId;
   DateTimeRange? _dateRange;
   String? _selectedUserId;
   String? _selectedUserName;
   bool _isLoading = false;
 
-  final Map<String, List<String>> _packagingTypes = {
-    'Individual or Small Unit Packaging': [
-      'Piece',
-      'Unit',
-      'Packet',
-      'Pouch',
-      'Sachet',
-      'Tube',
-      'Stick',
-      'Strip',
-    ],
-    'Grouped Retail Packaging': [
-      'Pair',
-      'Set',
-      'Kit',
-      'Blister Pack',
-      'Bundle',
-      'Dozen',
-      'Half Dozen',
-      'Score',
-      'Gross',
-      'Pack',
-      'Multipack',
-    ],
-    'Intermediate or Bulk Packaging': [
-      'Carton',
-      'Case',
-      'Tray',
-      'Crate',
-      'Shrink Wrap Pack',
-      'Display Box',
-    ],
-    'Large or Transport Packaging': [
-      'Pallet',
-      'Skid',
-      'Drum',
-      'Barrel',
-      'Sack',
-      'Bag',
-      'Bulk Bin',
-      'Tote',
-      'Container',
-    ],
-    'Specialized Groupings': ['Ream', 'Bale', 'Roll', 'Coil', 'Slab', 'Block'],
-  };
+  final List<String> _packagingTypes = [
+    'Piece',
+    'Unit',
+    'Packet',
+    'Pouch',
+    'Sachet',
+    'Tube',
+    'Stick',
+    'Strip',
+    'Pair',
+    'Set',
+    'Kit',
+    'Blister Pack',
+    'Bundle',
+    'Dozen',
+    'Half Dozen',
+    'Score',
+    'Gross',
+    'Pack',
+    'Multipack',
+    'Carton',
+    'Case',
+    'Tray',
+    'Crate',
+    'Shrink Wrap Pack',
+    'Display Box',
+    'Pallet',
+    'Skid',
+    'Drum',
+    'Barrel',
+    'Sack',
+    'Bag',
+    'Bulk Bin',
+    'Tote',
+    'Container',
+    'Ream',
+    'Bale',
+    'Roll',
+    'Coil',
+    'Slab',
+    'Block',
+  ];
 
   @override
   void initState() {
@@ -114,10 +111,10 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
                 primary: Color(0xFF4CAF50),
                 onPrimary: Colors.white,
               ),
-              dialogBackgroundColor: Colors.white,
               textButtonTheme: TextButtonThemeData(
                 style: TextButton.styleFrom(foregroundColor: Color(0xFF4CAF50)),
               ),
+              dialogTheme: DialogThemeData(backgroundColor: Colors.white),
             ),
             child: Dialog(
               shape: RoundedRectangleBorder(
@@ -364,7 +361,9 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -449,12 +448,17 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  Future<void> _deleteItem(String id) async {
-    final confirm = await showDialog<bool>(
+  Future<void> _editRequest(ItemRequest request) async {
+    final quantityController = TextEditingController(
+      text: request.quantity.toString(),
+    );
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder:
           (context) => Dialog(
@@ -490,6 +494,209 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
                       ),
                     ),
                     child: Text(
+                      'Edit Request',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.heading2.copyWith(
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: quantityController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: InputDecoration(
+                            labelText: 'Quantity',
+                            labelStyle: AppTypography.bodyText.copyWith(
+                              color: Colors.grey,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF4CAF50),
+                              ),
+                            ),
+                          ),
+                          style: AppTypography.bodyText,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: Text(
+                                'Cancel',
+                                style: AppTypography.bodyText.copyWith(
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () {
+                                final qty =
+                                    int.tryParse(quantityController.text) ?? 0;
+                                if (qty <= 0) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Quantity must be greater than zero',
+                                        style: AppTypography.bodyText,
+                                      ),
+                                      backgroundColor: Colors.red,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                Navigator.pop(context, {'quantity': qty});
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF4CAF50),
+                                      Color(0xFF66BB6A),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  'Update',
+                                  style: AppTypography.bodyText.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+
+    if (result != null && mounted) {
+      setState(() => _isLoading = true);
+      try {
+        final updatedRequest = ItemRequest(
+          id: request.id,
+          itemId: request.itemId,
+          itemName: request.itemName,
+          quantity: result['quantity'],
+          requesterId: request.requesterId,
+          status: request.status,
+          createdAt: request.createdAt,
+          purpose: request.purpose,
+          reason: request.reason,
+        );
+        await _firestoreService.addItemRequest(updatedRequest);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Request updated successfully',
+                style: AppTypography.bodyText,
+              ),
+              backgroundColor: const Color(0xFF4CAF50),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e', style: AppTypography.bodyText),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+    }
+    quantityController.dispose();
+  }
+
+  Future<void> _deleteItem(String id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(16),
+                      ),
+                    ),
+                    child: Text(
                       'Confirm Deletion',
                       textAlign: TextAlign.center,
                       style: AppTypography.heading2.copyWith(
@@ -498,7 +705,7 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(20.0),
                     child: Text(
                       'Are you sure you want to delete this item? This action cannot be undone.',
                       style: AppTypography.bodyText.copyWith(
@@ -593,7 +800,155 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _deleteRequest(String id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      'Confirm Deletion',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.heading2.copyWith(
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Text(
+                      'Are you sure you want to delete this request?',
+                      style: AppTypography.bodyText.copyWith(
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16, right: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: Text(
+                            'Cancel',
+                            style: AppTypography.bodyText.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context, true),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              'Delete',
+                              style: AppTypography.bodyText.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await _firestoreService.deleteItemRequest(id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Request deleted successfully',
+              style: AppTypography.bodyText,
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e', style: AppTypography.bodyText),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -654,7 +1009,7 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
             itemName: item.name,
             quantity: quantity,
             requesterId: _authService.currentUser!.uid,
-            status: 'Pending',
+            status: 'pending',
             createdAt: DateTime.now(),
           );
           await _firestoreService.addItemRequest(request);
@@ -690,14 +1045,16 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   void _resetForm() {
     setState(() {
       _isAddingItem = false;
-      _isEditing = false;
+      _isEditingItem = false;
       _editingItemId = null;
       _itemNameController.clear();
       _packagingTypeController.clear();
@@ -753,7 +1110,7 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
                       : () {
                         setState(() {
                           _isAddingItem = true;
-                          _isEditing = false;
+                          _isEditingItem = false;
                           _editingItemId = null;
                           _itemNameController.clear();
                           _packagingTypeController.clear();
@@ -777,9 +1134,10 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
                         ),
                     children: [
                       if (_role == 'admin') _buildAdminControls(),
-                      _buildSearchBar(),
+                      _buildSearchAndSortBar(),
                       if (_isAddingItem && _role == 'admin')
                         _buildAddItemForm(),
+                      if (_role != 'admin') _buildUserRequests(),
                       _buildItemList(),
                       if (_role != 'admin') _buildSubmitButton(),
                     ],
@@ -846,6 +1204,13 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: Colors.grey[300]!),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Text(
                               _dateRange == null
@@ -872,6 +1237,13 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: Colors.grey[300]!),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Text(
                               _selectedUserName ?? 'All Users',
@@ -923,7 +1295,7 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchAndSortBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: AnimationConfiguration.staggeredList(
@@ -932,29 +1304,61 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
         child: SlideAnimation(
           verticalOffset: 50.0,
           child: FadeInAnimation(
-            child: TextField(
-              controller: _searchController,
-              enabled: !_isLoading,
-              decoration: InputDecoration(
-                hintText: 'Search items...',
-                hintStyle: AppTypography.bodyText.copyWith(color: Colors.grey),
-                prefixIcon: const Icon(Icons.search, color: Colors.white),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF4CAF50)),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 16,
-                  horizontal: 12,
-                ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              style: AppTypography.bodyText,
+              child: TextField(
+                controller: _searchController,
+                enabled: !_isLoading,
+                decoration: InputDecoration(
+                  hintText: 'Search items...',
+                  hintStyle: AppTypography.bodyText.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: Color(0xFF4CAF50),
+                  ),
+                  suffixIcon:
+                      _searchController.text.isNotEmpty
+                          ? IconButton(
+                            icon: const Icon(
+                              Icons.clear,
+                              color: Color(0xFF4CAF50),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                              });
+                            },
+                          )
+                          : null,
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF4CAF50)),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 12,
+                  ),
+                ),
+                style: AppTypography.bodyText,
+              ),
             ),
           ),
         ),
@@ -1055,17 +1459,17 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
                           ),
                           style: AppTypography.bodyText,
                           items:
-                              _packagingTypes.entries.expand((category) {
-                                return category.value.map(
-                                  (type) => DropdownMenuItem(
-                                    value: type,
-                                    child: Text(
-                                      '$type (${category.key})',
-                                      style: AppTypography.bodyText,
+                              _packagingTypes
+                                  .map(
+                                    (type) => DropdownMenuItem(
+                                      value: type,
+                                      child: Text(
+                                        type,
+                                        style: AppTypography.bodyText,
+                                      ),
                                     ),
-                                  ),
-                                );
-                              }).toList(),
+                                  )
+                                  .toList(),
                           onChanged:
                               _isLoading
                                   ? null
@@ -1098,7 +1502,7 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
                                       ? null
                                       : () => _addOrEditItem(
                                         item:
-                                            _isEditing
+                                            _isEditingItem
                                                 ? GeneralItem(
                                                   id: _editingItemId!,
                                                   name:
@@ -1138,7 +1542,7 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
                                   ],
                                 ),
                                 child: Text(
-                                  _isEditing ? 'Update Item' : 'Add Item',
+                                  _isEditingItem ? 'Update Item' : 'Add Item',
                                   style: AppTypography.bodyText.copyWith(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
@@ -1160,6 +1564,136 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
     );
   }
 
+  Widget _buildUserRequests() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: AnimationConfiguration.staggeredList(
+        position: 0,
+        duration: const Duration(milliseconds: 375),
+        child: SlideAnimation(
+          verticalOffset: 50.0,
+          child: FadeInAnimation(
+            child: StreamBuilder<List<ItemRequest>>(
+              stream: _firestoreService.streamFilteredItemRequests(
+                requesterId: _authService.currentUser!.uid,
+              ),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      'Error loading requests',
+                      style: AppTypography.bodyText.copyWith(color: Colors.red),
+                    ),
+                  );
+                }
+                final requests = snapshot.data ?? [];
+                if (requests.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No requests found',
+                      style: AppTypography.bodyText.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'My Requests',
+                      style: AppTypography.heading2.copyWith(
+                        color: const Color(0xFF4CAF50),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: requests.length,
+                      itemBuilder: (context, index) {
+                        final request = requests[index];
+                        return AnimationConfiguration.staggeredList(
+                          position: index,
+                          duration: const Duration(milliseconds: 375),
+                          child: SlideAnimation(
+                            verticalOffset: 20.0,
+                            child: FadeInAnimation(
+                              child: Card(
+                                elevation: 4,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0,
+                                    vertical: 8.0,
+                                  ),
+                                  title: Text(
+                                    request.itemName,
+                                    style: AppTypography.bodyText.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    'Quantity: ${request.quantity} | Status: ${request.status}',
+                                    style: AppTypography.caption.copyWith(
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  trailing:
+                                      request.status == 'pending'
+                                          ? Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.edit,
+                                                  color: Colors.blue,
+                                                ),
+                                                onPressed:
+                                                    _isLoading
+                                                        ? null
+                                                        : () => _editRequest(
+                                                          request,
+                                                        ),
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.delete,
+                                                  color: Colors.red,
+                                                ),
+                                                onPressed:
+                                                    _isLoading
+                                                        ? null
+                                                        : () => _deleteRequest(
+                                                          request.id,
+                                                        ),
+                                              ),
+                                            ],
+                                          )
+                                          : null,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildItemList() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -1171,11 +1705,11 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
           child: FadeInAnimation(
             child: StreamBuilder<List<GeneralItem>>(
               stream: _firestoreService.getAllGeneralItems(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+              builder: (context, itemSnapshot) {
+                if (itemSnapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (snapshot.hasError) {
+                if (itemSnapshot.hasError) {
                   return Center(
                     child: Text(
                       'Error loading items',
@@ -1183,7 +1717,7 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
                     ),
                   );
                 }
-                final items = snapshot.data ?? [];
+                final items = itemSnapshot.data ?? [];
                 final filteredItems =
                     items.where((item) {
                       return item.name.toLowerCase().contains(
@@ -1213,239 +1747,293 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
                   );
                 }
 
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filteredItems.length,
-                  itemBuilder: (context, index) {
-                    final item = filteredItems[index];
-                    final isSelected = _selectedItems.containsKey(item.id);
-
-                    if (isSelected &&
-                        !_quantityControllers.containsKey(item.id)) {
-                      _quantityControllers[item.id] = TextEditingController();
+                return StreamBuilder<List<ItemRequest>>(
+                  stream: _firestoreService.streamFilteredItemRequests(
+                    requesterId: _authService.currentUser!.uid,
+                  ),
+                  builder: (context, requestSnapshot) {
+                    if (requestSnapshot.connectionState ==
+                        ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
                     }
+                    if (requestSnapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          'Error loading requests',
+                          style: AppTypography.bodyText.copyWith(
+                            color: Colors.red,
+                          ),
+                        ),
+                      );
+                    }
+                    final requests = requestSnapshot.data ?? [];
+                    final requestedItemIds =
+                        requests
+                            .where((req) => req.status == 'pending')
+                            .map((req) => req.itemId)
+                            .toSet();
 
-                    return AnimationConfiguration.staggeredList(
-                      position: index,
-                      duration: const Duration(milliseconds: 375),
-                      child: SlideAnimation(
-                        verticalOffset: 20.0,
-                        child: FadeInAnimation(
-                          child: Card(
-                            elevation: 4,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFFFFFFFF),
-                                    Color(0xFFF5F5F5),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filteredItems.length,
+                      itemBuilder: (context, index) {
+                        final item = filteredItems[index];
+                        final isSelected = _selectedItems.containsKey(item.id);
+                        final isRequested = requestedItemIds.contains(item.id);
+
+                        if (isSelected &&
+                            !_quantityControllers.containsKey(item.id)) {
+                          _quantityControllers[item.id] =
+                              TextEditingController();
+                        }
+
+                        return AnimationConfiguration.staggeredList(
+                          position: index,
+                          duration: const Duration(milliseconds: 375),
+                          child: SlideAnimation(
+                            verticalOffset: 20.0,
+                            child: FadeInAnimation(
+                              child: Card(
+                                elevation: 4,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0,
-                                  vertical: 8.0,
-                                ),
-                                leading: CircleAvatar(
-                                  backgroundColor: const Color(
-                                    0xFF4CAF50,
-                                  ).withOpacity(0.1),
-                                  child: Text(
-                                    item.name[0].toUpperCase(),
-                                    style: AppTypography.bodyText.copyWith(
-                                      color: const Color(0xFF4CAF50),
-                                      fontWeight: FontWeight.bold,
+                                margin: const EdgeInsets.only(bottom: 12),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFFFFFFFF),
+                                        Color(0xFFF5F5F5),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
                                     ),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                ),
-                                title: Text(
-                                  item.name,
-                                  style: AppTypography.bodyText.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                subtitle: Padding(
-                                  padding: const EdgeInsets.only(top: 4.0),
-                                  child: Text(
-                                    'Packaging: ${item.packagingType}',
-                                    style: AppTypography.caption.copyWith(
-                                      color: Colors.grey[600],
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16.0,
+                                      vertical: 8.0,
                                     ),
-                                  ),
-                                ),
-                                trailing:
-                                    _role == 'admin'
-                                        ? Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.edit,
-                                                color: Colors.blue,
-                                              ),
-                                              onPressed:
-                                                  _isLoading
-                                                      ? null
-                                                      : () {
-                                                        setState(() {
-                                                          _isAddingItem = true;
-                                                          _isEditing = true;
-                                                          _editingItemId =
-                                                              item.id;
-                                                          _itemNameController
-                                                              .text = item.name;
-                                                          _packagingTypeController
-                                                                  .text =
-                                                              item.packagingType;
-                                                        });
-                                                      },
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.delete,
-                                                color: Colors.red,
-                                              ),
-                                              onPressed:
-                                                  _isLoading
-                                                      ? null
-                                                      : () =>
-                                                          _deleteItem(item.id),
-                                            ),
-                                          ],
-                                        )
-                                        : Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Checkbox(
-                                              value: isSelected,
-                                              activeColor: const Color(
-                                                0xFF4CAF50,
-                                              ),
-                                              onChanged:
-                                                  _isLoading
-                                                      ? null
-                                                      : (value) {
-                                                        setState(() {
-                                                          if (value == true) {
-                                                            _selectedItems[item
-                                                                    .id] =
-                                                                0;
-                                                            _quantityControllers[item
-                                                                    .id] =
-                                                                TextEditingController();
-                                                          } else {
-                                                            _selectedItems
-                                                                .remove(
-                                                                  item.id,
-                                                                );
-                                                            _quantityControllers[item
-                                                                    .id]
-                                                                ?.dispose();
-                                                            _quantityControllers
-                                                                .remove(
-                                                                  item.id,
-                                                                );
-                                                          }
-                                                        });
-                                                      },
-                                            ),
-                                            if (isSelected)
-                                              SizedBox(
-                                                width: 80,
-                                                child: TextField(
-                                                  controller:
-                                                      _quantityControllers[item
-                                                          .id],
-                                                  enabled: !_isLoading,
-                                                  keyboardType:
-                                                      TextInputType.number,
-                                                  inputFormatters: [
-                                                    FilteringTextInputFormatter
-                                                        .digitsOnly,
-                                                  ],
-                                                  decoration: InputDecoration(
-                                                    hintText: 'Qty',
-                                                    hintStyle: AppTypography
-                                                        .caption
-                                                        .copyWith(
-                                                          color: Colors.grey,
-                                                        ),
-                                                    filled: true,
-                                                    fillColor: Colors.white,
-                                                    border: OutlineInputBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
+                                    leading: CircleAvatar(
+                                      backgroundColor: const Color(
+                                        0xFF4CAF50,
+                                      ).withOpacity(0.1),
+                                      child: Text(
+                                        item.name[0].toUpperCase(),
+                                        style: AppTypography.bodyText.copyWith(
+                                          color: const Color(0xFF4CAF50),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    title: Text(
+                                      item.name,
+                                      style: AppTypography.bodyText.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    subtitle: Padding(
+                                      padding: const EdgeInsets.only(top: 4.0),
+                                      child: Text(
+                                        'Packaging: ${item.packagingType}',
+                                        style: AppTypography.caption.copyWith(
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ),
+                                    trailing:
+                                        _role == 'admin'
+                                            ? Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                IconButton(
+                                                  icon: const Icon(
+                                                    Icons.edit,
+                                                    color: Colors.blue,
+                                                  ),
+                                                  onPressed:
+                                                      _isLoading
+                                                          ? null
+                                                          : () {
+                                                            setState(() {
+                                                              _isAddingItem =
+                                                                  true;
+                                                              _isEditingItem =
+                                                                  true;
+                                                              _editingItemId =
+                                                                  item.id;
+                                                              _itemNameController
+                                                                      .text =
+                                                                  item.name;
+                                                              _packagingTypeController
+                                                                      .text =
+                                                                  item.packagingType;
+                                                            });
+                                                          },
+                                                ),
+                                                IconButton(
+                                                  icon: const Icon(
+                                                    Icons.delete,
+                                                    color: Colors.red,
+                                                  ),
+                                                  onPressed:
+                                                      _isLoading
+                                                          ? null
+                                                          : () => _deleteItem(
+                                                            item.id,
                                                           ),
-                                                      borderSide:
-                                                          BorderSide.none,
-                                                    ),
-                                                    focusedBorder:
-                                                        OutlineInputBorder(
+                                                ),
+                                              ],
+                                            )
+                                            : isRequested
+                                            ? const Text(
+                                              'Requested',
+                                              style: TextStyle(
+                                                color: Colors.grey,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            )
+                                            : Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Checkbox(
+                                                  value: isSelected,
+                                                  activeColor: const Color(
+                                                    0xFF4CAF50,
+                                                  ),
+                                                  onChanged:
+                                                      _isLoading
+                                                          ? null
+                                                          : (value) {
+                                                            setState(() {
+                                                              if (value ==
+                                                                  true) {
+                                                                _selectedItems[item
+                                                                        .id] =
+                                                                    0;
+                                                                _quantityControllers[item
+                                                                        .id] =
+                                                                    TextEditingController();
+                                                              } else {
+                                                                _selectedItems
+                                                                    .remove(
+                                                                      item.id,
+                                                                    );
+                                                                _quantityControllers[item
+                                                                        .id]
+                                                                    ?.dispose();
+                                                                _quantityControllers
+                                                                    .remove(
+                                                                      item.id,
+                                                                    );
+                                                              }
+                                                            });
+                                                          },
+                                                ),
+                                                if (isSelected)
+                                                  SizedBox(
+                                                    width: 80,
+                                                    child: TextField(
+                                                      controller:
+                                                          _quantityControllers[item
+                                                              .id],
+                                                      enabled: !_isLoading,
+                                                      keyboardType:
+                                                          TextInputType.number,
+                                                      inputFormatters: [
+                                                        FilteringTextInputFormatter
+                                                            .digitsOnly,
+                                                      ],
+                                                      decoration: InputDecoration(
+                                                        hintText: 'Qty',
+                                                        hintStyle: AppTypography
+                                                            .caption
+                                                            .copyWith(
+                                                              color:
+                                                                  Colors.grey,
+                                                            ),
+                                                        filled: true,
+                                                        fillColor: Colors.white,
+                                                        border: OutlineInputBorder(
                                                           borderRadius:
                                                               BorderRadius.circular(
                                                                 8,
                                                               ),
                                                           borderSide:
-                                                              const BorderSide(
-                                                                color: Color(
-                                                                  0xFF4CAF50,
-                                                                ),
-                                                              ),
+                                                              BorderSide.none,
                                                         ),
-                                                    contentPadding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 8,
-                                                          vertical: 8,
-                                                        ),
+                                                        focusedBorder:
+                                                            OutlineInputBorder(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    8,
+                                                                  ),
+                                                              borderSide:
+                                                                  const BorderSide(
+                                                                    color: Color(
+                                                                      0xFF4CAF50,
+                                                                    ),
+                                                                  ),
+                                                            ),
+                                                        contentPadding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 8,
+                                                              vertical: 8,
+                                                            ),
+                                                      ),
+                                                      style:
+                                                          AppTypography
+                                                              .bodyText,
+                                                      onChanged: (value) {
+                                                        final qty =
+                                                            int.tryParse(
+                                                              value,
+                                                            ) ??
+                                                            0;
+                                                        setState(() {
+                                                          _selectedItems[item
+                                                                  .id] =
+                                                              qty;
+                                                        });
+                                                      },
+                                                    ),
                                                   ),
-                                                  style: AppTypography.bodyText,
-                                                  onChanged: (value) {
-                                                    final qty =
-                                                        int.tryParse(value) ??
-                                                        0;
-                                                    setState(() {
-                                                      _selectedItems[item.id] =
-                                                          qty;
-                                                    });
-                                                  },
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                onTap:
-                                    _role != 'admin' && !_isLoading
-                                        ? () {
-                                          setState(() {
-                                            if (isSelected) {
-                                              _selectedItems.remove(item.id);
-                                              _quantityControllers[item.id]
-                                                  ?.dispose();
-                                              _quantityControllers.remove(
-                                                item.id,
-                                              );
-                                            } else {
-                                              _selectedItems[item.id] = 0;
-                                              _quantityControllers[item.id] =
-                                                  TextEditingController();
+                                              ],
+                                            ),
+                                    onTap:
+                                        _role != 'admin' &&
+                                                !_isLoading &&
+                                                !isRequested
+                                            ? () {
+                                              setState(() {
+                                                if (isSelected) {
+                                                  _selectedItems.remove(
+                                                    item.id,
+                                                  );
+                                                  _quantityControllers[item.id]
+                                                      ?.dispose();
+                                                  _quantityControllers.remove(
+                                                    item.id,
+                                                  );
+                                                } else {
+                                                  _selectedItems[item.id] = 0;
+                                                  _quantityControllers[item
+                                                          .id] =
+                                                      TextEditingController();
+                                                }
+                                              });
                                             }
-                                          });
-                                        }
-                                        : null,
+                                            : null,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     );
                   },
                 );

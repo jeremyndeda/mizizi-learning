@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/colors.dart';
 import '../../core/constants/typography.dart';
 import '../../core/services/auth_service.dart';
@@ -6,7 +7,7 @@ import '../../core/services/firestore_service.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_text_field.dart';
 import '../dashboard/dashboard_screen.dart';
-import 'register_screen.dart';
+// import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -25,6 +26,40 @@ class _LoginScreenState extends State<LoginScreen> {
   String _error = '';
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedEmail = prefs.getString('email') ?? '';
+    final savedPassword = prefs.getString('password') ?? '';
+    final rememberMe = prefs.getBool('rememberMe') ?? false;
+
+    if (rememberMe) {
+      setState(() {
+        _emailController.text = savedEmail;
+        _passwordController.text = savedPassword;
+        _rememberMe = true;
+      });
+    }
+  }
+
+  Future<void> _saveCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_rememberMe) {
+      await prefs.setString('email', _emailController.text.trim());
+      await prefs.setString('password', _passwordController.text);
+      await prefs.setBool('rememberMe', true);
+    } else {
+      await prefs.remove('email');
+      await prefs.remove('password');
+      await prefs.setBool('rememberMe', false);
+    }
+  }
+
   void _login() async {
     setState(() {
       _isLoading = true;
@@ -39,11 +74,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final user = credential.user;
       if (user != null) {
-        // Ensure we only create Firestore document if it doesn't exist
         await _firestoreService.sendUserToFirestoreIfNotExists(
           user.uid,
           user.email!,
         );
+
+        await _saveCredentials();
 
         if (_rememberMe) {
           await _authService.setLoggedInStatus(true);
@@ -118,19 +154,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: _login,
                 isLoading: _isLoading,
               ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                  );
-                },
-                child: const Text(
-                  'Don’t have an account? Register',
-                  style: TextStyle(color: AppColors.primaryGreen),
-                ),
-              ),
+              // const SizedBox(height: 12),
+              // TextButton(
+              //   onPressed: () {
+              //     Navigator.push(
+              //       context,
+              //       MaterialPageRoute(builder: (_) => const RegisterScreen()),
+              //     );
+              //   },
+              //   child: const Text(
+              //     'Don’t have an account? Register',
+              //     style: TextStyle(color: AppColors.primaryGreen),
+              //   ),
+              // ),
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Container(

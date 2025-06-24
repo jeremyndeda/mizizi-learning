@@ -6,6 +6,7 @@ class UserModel {
   final String role;
   final DateTime createdAt;
   final String? name;
+  final List<String> linkedUserIds; // New field for linked accounts
 
   UserModel({
     required this.uid,
@@ -13,6 +14,7 @@ class UserModel {
     required this.role,
     required this.createdAt,
     this.name,
+    this.linkedUserIds = const [], // Default to empty list
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map, String uid) {
@@ -22,6 +24,7 @@ class UserModel {
       role: map['role'] ?? 'user',
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       name: map['name'],
+      linkedUserIds: List<String>.from(map['linkedUserIds'] ?? []),
     );
   }
 
@@ -32,6 +35,7 @@ class UserModel {
       'role': role,
       'createdAt': createdAt,
       'name': name,
+      'linkedUserIds': linkedUserIds,
     };
   }
 }

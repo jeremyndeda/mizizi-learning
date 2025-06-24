@@ -19,7 +19,7 @@ class PdfService {
     List<DateTime>? dateRange,
   }) async {
     final pdf = pw.Document();
-    final directory = await getTemporaryDirectory();
+    final directory = await getApplicationDocumentsDirectory();
     final filePath =
         '${directory.path}/inventory_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final file = File(filePath);
@@ -227,13 +227,26 @@ class PdfService {
   }
 
   /// Generates an Item Requests only report PDF
-  /// Takes a list of ItemRequest objects (already fetched & filtered)
-  Future<File> generateItemRequestsReport(List<ItemRequest> requests) async {
+  /// Supports filtering by userId or dateRange
+  Future<File> generateItemRequestsReport({
+    String? userId,
+    String? userName,
+    List<DateTime>? dateRange,
+  }) async {
     final pdf = pw.Document();
-    final directory = await getTemporaryDirectory();
+    final directory = await getApplicationDocumentsDirectory();
     final filePath =
         '${directory.path}/item_requests_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final file = File(filePath);
+
+    // Fetch filtered requests
+    final requests = await _firestoreService.getFilteredItemRequests(
+      startDate:
+          dateRange != null && dateRange.length == 2 ? dateRange[0] : null,
+      endDate: dateRange != null && dateRange.length == 2 ? dateRange[1] : null,
+      status: null,
+      requesterId: userId,
+    );
 
     // Prepare data for the PDF table
     final requestData = await Future.wait(
@@ -262,6 +275,13 @@ class PdfService {
       }),
     );
 
+    // Filters display text
+    final userFilter = userId != null ? 'User: $userName' : 'All Users';
+    final dateFilter =
+        dateRange != null && dateRange.length == 2
+            ? 'Date Range: ${DateFormat('yyyy-MM-dd').format(dateRange[0])} to ${DateFormat('yyyy-MM-dd').format(dateRange[1])}'
+            : 'All Dates';
+
     // Build PDF content
     pdf.addPage(
       pw.MultiPage(
@@ -275,6 +295,8 @@ class PdfService {
                   style: pw.TextStyle(fontSize: 24),
                 ),
               ),
+              pw.Paragraph(text: userFilter),
+              pw.Paragraph(text: dateFilter),
               pw.TableHelper.fromTextArray(
                 headers: [
                   'Item',
@@ -320,49 +342,24 @@ class PdfService {
     List<DateTime>? dateRange,
   }) async {
     final pdf = pw.Document();
-    final directory = await getTemporaryDirectory();
+    final directory = await getApplicationDocumentsDirectory();
     final filePath =
         '${directory.path}/general_items_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final file = File(filePath);
 
-    // Fetch all item requests
-    final allRequests = await _firestoreService.getAllItemRequests().first;
-
-    // Filter requests by date and userId if needed
-    List<ItemRequest> filteredRequests = allRequests;
-    if (specificDate != null) {
-      final startUtc =
-          DateTime(
-            specificDate.year,
-            specificDate.month,
-            specificDate.day,
-          ).toUtc();
-      final endUtc = startUtc.add(const Duration(days: 1));
-      filteredRequests =
-          allRequests
-              .where(
-                (r) =>
-                    r.createdAt.isAfter(startUtc) &&
-                    r.createdAt.isBefore(endUtc),
-              )
-              .toList();
-    } else if (dateRange != null && dateRange.length == 2) {
-      final startUtc = dateRange[0].toUtc();
-      final endUtc = dateRange[1].add(const Duration(days: 1)).toUtc();
-      filteredRequests =
-          allRequests
-              .where(
-                (r) =>
-                    r.createdAt.isAfter(startUtc) &&
-                    r.createdAt.isBefore(endUtc),
-              )
-              .toList();
-    }
-
-    if (userId != null) {
-      filteredRequests =
-          filteredRequests.where((r) => r.requesterId == userId).toList();
-    }
+    // Fetch filtered requests
+    final filteredRequests = await _firestoreService.getFilteredItemRequests(
+      startDate:
+          dateRange != null && dateRange.length == 2
+              ? dateRange[0]
+              : specificDate,
+      endDate:
+          dateRange != null && dateRange.length == 2
+              ? dateRange[1]
+              : specificDate?.add(const Duration(days: 1)),
+      status: null,
+      requesterId: userId,
+    );
 
     // Prepare request data
     final requestData = await Future.wait(

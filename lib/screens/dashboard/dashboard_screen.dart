@@ -15,7 +15,6 @@ import '../inventory/all_inventory_screen.dart';
 import '../inventory/request_item_screen.dart';
 import '../inventory/manage_requests_screen.dart';
 import '../inventory/general_items_screen.dart';
-import '../inventory/return_item_screen.dart';
 import '../admin/add_user_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -77,12 +76,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
         break;
       case 1:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ReturnItemScreen()),
-        );
-        break;
-      case 2:
         _authService.getUserRole().then((role) {
           if (role == 'admin') {
             Navigator.push(
@@ -111,16 +104,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: Icon(Icons.widgets),
             label: 'General Items',
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.reply),
-            label: 'Return Item',
-          ),
         ];
         if (role == 'admin') {
           navItems.add(
             const BottomNavigationBarItem(
               icon: Icon(Icons.person_add),
               label: 'Add User',
+            ),
+          );
+        } else {
+          navItems.add(
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.reply),
+              label: 'Return Item',
             ),
           );
         }
@@ -234,7 +230,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const ManageRequestsScreen(),
+                      builder:
+                          (_) => ManageRequestsScreen(
+                            currentUserId: _authService.currentUser!.uid,
+                          ),
                     ),
                   ),
               gradient: const LinearGradient(

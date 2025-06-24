@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/typography.dart';
 import '../../../core/models/inventory_item.dart';
+import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../core/services/notification_service.dart';
@@ -28,6 +29,74 @@ class _InventoryListState extends State<InventoryList> {
 
   int _currentPage = 0;
   final int _itemsPerPage = 5;
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    String itemId,
+    String itemName,
+    String userId,
+  ) async {
+    final bool? shouldDelete = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Confirm Deletion',
+              style: AppTypography.heading2,
+            ),
+            content: Text(
+              'Are you sure you want to delete "$itemName"? This action cannot be undone.',
+              style: AppTypography.bodyText,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete', style: AppTypography.buttonText),
+              ),
+            ],
+          ),
+    );
+
+    if (shouldDelete == true) {
+      await _firestoreService.deleteInventoryItem(itemId);
+      await _notificationService.sendInventoryNotification(
+        userId,
+        'Item Deleted',
+        'Item $itemName has been deleted.',
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '"$itemName" deleted successfully',
+              style: AppTypography.bodyText,
+            ),
+            backgroundColor: const Color(0xFF4CAF50), // Green
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,12 +176,47 @@ class _InventoryListState extends State<InventoryList> {
                     ),
                     const SizedBox(height: 8),
                     ...pagedItems.map(
-                      (item) => InventoryCard(
-                        item: item,
-                        currentUserRole: role,
-                        onEdit: () => _handleEdit(item),
-                        onDelete: () => _handleDelete(item),
-                        onIssue: () => _handleIssue(item, role),
+                      (item) => FutureBuilder<UserModel?>(
+                        future: _firestoreService.getUser(item.userId),
+                        builder: (context, userSnapshot) {
+                          String ownerName = 'Unknown';
+                          if (userSnapshot.hasData &&
+                              userSnapshot.data != null) {
+                            ownerName =
+                                userSnapshot.data!.name ??
+                                userSnapshot.data!.email;
+                          }
+                          final isOwner =
+                              _authService.currentUser?.uid == item.userId;
+                          return InventoryCard(
+                            item: item,
+                            currentUserRole: role,
+                            ownerName: ownerName,
+                            onEdit:
+                                isOwner
+                                    ? () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (_) => AddEditItemScreen(
+                                              userId: widget.userId,
+                                              item: item,
+                                            ),
+                                      ),
+                                    )
+                                    : null, // Hide edit button if not owner
+                            onDelete:
+                                isOwner
+                                    ? () => _confirmDelete(
+                                      context,
+                                      item.id,
+                                      item.name,
+                                      widget.userId,
+                                    )
+                                    : null, // Hide delete button if not owner
+                            onIssue: () => _handleIssue(item, role),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -221,36 +325,6 @@ class _InventoryListState extends State<InventoryList> {
         },
       ),
     );
-  }
-
-  void _handleEdit(InventoryItem item) {
-    if (_authService.currentUser?.uid == item.userId) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AddEditItemScreen(userId: widget.userId, item: item),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You can only edit your own items')),
-      );
-    }
-  }
-
-  Future<void> _handleDelete(InventoryItem item) async {
-    if (_authService.currentUser?.uid == item.userId) {
-      await _firestoreService.deleteInventoryItem(item.id);
-      await _notificationService.sendInventoryNotification(
-        widget.userId,
-        'Item Deleted',
-        'Item ${item.name} has been deleted.',
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You can only delete your own items')),
-      );
-    }
   }
 
   void _handleIssue(InventoryItem item, String role) {

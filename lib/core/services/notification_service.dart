@@ -125,4 +125,29 @@ class NotificationService {
       rethrow;
     }
   }
+
+  // Send notification to multiple users
+  Future<void> sendInventoryNotificationToUsers(
+    List<String> userIds,
+    String title,
+    String body, {
+    String? type,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      for (final userId in userIds) {
+        await sendInventoryNotification(
+          userId,
+          title,
+          body,
+          type: type,
+          data: data,
+        );
+      }
+      _logger.info('Sent notification to ${userIds.length} users: $title');
+    } catch (e) {
+      _logger.severe('Error sending notifications to multiple users: $e');
+      rethrow;
+    }
+  }
 }
