@@ -19,7 +19,7 @@ class PdfService {
     List<DateTime>? dateRange,
   }) async {
     final pdf = pw.Document();
-    final directory = await getApplicationDocumentsDirectory();
+    final directory = await getTemporaryDirectory();
     final filePath =
         '${directory.path}/inventory_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final file = File(filePath);
@@ -234,7 +234,7 @@ class PdfService {
     List<DateTime>? dateRange,
   }) async {
     final pdf = pw.Document();
-    final directory = await getApplicationDocumentsDirectory();
+    final directory = await getTemporaryDirectory();
     final filePath =
         '${directory.path}/item_requests_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final file = File(filePath);
@@ -342,7 +342,7 @@ class PdfService {
     List<DateTime>? dateRange,
   }) async {
     final pdf = pw.Document();
-    final directory = await getApplicationDocumentsDirectory();
+    final directory = await getTemporaryDirectory();
     final filePath =
         '${directory.path}/general_items_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final file = File(filePath);
