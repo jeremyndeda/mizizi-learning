@@ -15,6 +15,7 @@ import '../inventory/all_inventory_screen.dart';
 import '../inventory/request_item_screen.dart';
 import '../inventory/manage_requests_screen.dart';
 import '../inventory/general_items_screen.dart';
+import '../inventory/return_item_screen.dart';
 import '../admin/add_user_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -81,6 +82,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const AddUserScreen()),
+            );
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ReturnItemScreen()),
             );
           }
         });
