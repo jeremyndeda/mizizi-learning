@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:share_plus/share_plus.dart';
+import 'package:open_file/open_file.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/inventory_item.dart';
 import '../models/item_request.dart';
 import 'firestore_service.dart';
@@ -227,8 +230,8 @@ class PdfService {
   }
 
   /// Generates an Item Requests only report PDF
-  /// Supports filtering by userId or dateRange
-  Future<File> generateItemRequestsReport({
+  /// Supports filtering by userId or dateRange, allows saving, sharing, or opening
+  Future<void> generateItemRequestsReport({
     String? userId,
     String? userName,
     List<DateTime>? dateRange,
@@ -328,14 +331,35 @@ class PdfService {
       ),
     );
 
-    // Save PDF to file
+    // Save PDF to temporary file
     await file.writeAsBytes(await pdf.save());
-    return file;
+
+    // Let user choose save location
+    final String? outputPath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save Item Requests Report',
+      fileName:
+          'item_requests_report_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    );
+
+    if (outputPath != null) {
+      await file.copy(outputPath);
+      print('PDF saved to: $outputPath');
+      // Open the file after saving
+      final result = await OpenFile.open(outputPath);
+      if (result.type != ResultType.done) {
+        print('Error opening file: ${result.message}');
+      }
+    } else {
+      // If user cancels save dialog, offer to share
+      await Share.shareXFiles([
+        XFile(filePath, mimeType: 'application/pdf'),
+      ], text: 'Item Requests Report');
+    }
   }
 
   /// Generates a General Items Request Report PDF
   /// Supports filtering by userId or all users, with totals per item
-  Future<File> generateGeneralItemsReport({
+  Future<void> generateGeneralItemsReport({
     String? userId,
     String? userName,
     DateTime? specificDate,
@@ -473,8 +497,29 @@ class PdfService {
       ),
     );
 
-    // Save PDF to file
+    // Save PDF to temporary file
     await file.writeAsBytes(await pdf.save());
-    return file;
+
+    // Let user choose save location
+    final String? outputPath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save General Items Report',
+      fileName:
+          'general_items_report_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    );
+
+    if (outputPath != null) {
+      await file.copy(outputPath);
+      print('PDF saved to: $outputPath');
+      // Open the file after saving
+      final result = await OpenFile.open(outputPath);
+      if (result.type != ResultType.done) {
+        print('Error opening file: ${result.message}');
+      }
+    } else {
+      // If user cancels save dialog, offer to share
+      await Share.shareXFiles([
+        XFile(filePath, mimeType: 'application/pdf'),
+      ], text: 'General Items Report');
+    }
   }
 }
