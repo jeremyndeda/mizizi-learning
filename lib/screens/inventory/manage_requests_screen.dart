@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:logging/logging.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/constants/typography.dart';
 import '../../core/models/inventory_item.dart';
 import '../../core/models/item_request.dart';
@@ -13,7 +14,7 @@ import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_text_field.dart';
 
 class ManageRequestsScreen extends StatefulWidget {
-  final String currentUserId; // Added to pass current user's ID
+  final String currentUserId;
   const ManageRequestsScreen({super.key, required this.currentUserId});
 
   @override
@@ -135,8 +136,9 @@ class _ManageRequestsScreenState extends State<ManageRequestsScreen> {
                 ? [_startDate!, _endDate!]
                 : null,
       );
+      await Share.shareXFiles([XFile(file.path)], text: 'Item Requests Report');
       _showSnackBar(
-        'PDF downloaded to ${file.path}',
+        'PDF generated successfully',
         backgroundColor: Colors.green,
       );
     } catch (e) {
@@ -261,7 +263,6 @@ class _ManageRequestsScreenState extends State<ManageRequestsScreen> {
   ) async {
     setState(() => _isLoading = true);
     try {
-      // Fetch the current user's inventory
       final userInventory =
           await _firestoreService.getUserInventory(widget.currentUserId).first;
       final item = userInventory.firstWhere(
@@ -285,11 +286,9 @@ class _ManageRequestsScreenState extends State<ManageRequestsScreen> {
           _showSnackBar('Insufficient quantity available in your inventory');
           return;
         }
-        // Update the admin's inventory
         await _firestoreService.updateInventoryItem(item.id, {
           'amount': item.amount - request.quantity,
         });
-        // Create new inventory item for the requester
         final newItem = InventoryItem(
           id: const Uuid().v4(),
           name: item.name,
@@ -426,7 +425,12 @@ class _ManageRequestsScreenState extends State<ManageRequestsScreen> {
 
   void _showSnackBar(String message, {Color? backgroundColor}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: backgroundColor),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
     );
   }
 
@@ -618,7 +622,6 @@ class _ManageRequestsScreenState extends State<ManageRequestsScreen> {
                     }
 
                     final requests = snapshot.data!;
-                    // Sort by createdAt (newest first)
                     final sortedRequests =
                         requests.toList()
                           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));

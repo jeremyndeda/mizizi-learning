@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:uuid/uuid.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/constants/typography.dart';
 import '../../core/models/general_item.dart';
 import '../../core/models/item_request.dart';
@@ -323,12 +324,13 @@ class _GeneralItemsScreenState extends State<GeneralItemsScreen> {
   Future<void> _generateReport() async {
     setState(() => _isLoading = true);
     try {
-      await _pdfService.generateGeneralItemsReport(
+      final file = await _pdfService.generateGeneralItemsReport(
         userId: _selectedUserId,
         userName: _selectedUserName,
         dateRange:
             _dateRange == null ? null : [_dateRange!.start, _dateRange!.end],
       );
+      await Share.shareXFiles([XFile(file.path)], text: 'General Items Report');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
