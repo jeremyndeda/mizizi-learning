@@ -1,3 +1,4 @@
+import 'package:Mizizi/core/models/repair_request.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../models/inventory_item.dart';
@@ -431,6 +432,97 @@ class FirestoreService {
 
   Future<void> deleteItemRequest(String id) async {
     await _firestore.collection('item_requests').doc(id).delete();
+  }
+
+  // ---------------- Repair Requests ----------------
+
+  Future<void> addRepairRequest(RepairRequest request) async {
+    await _firestore
+        .collection('repair_requests')
+        .doc(request.id)
+        .set(request.toMap());
+  }
+
+  Stream<List<RepairRequest>> getAllRepairRequests() {
+    return _firestore
+        .collection('repair_requests')
+        .withConverter<RepairRequest>(
+          fromFirestore:
+              (snapshot, _) =>
+                  RepairRequest.fromMap(snapshot.data()!, snapshot.id),
+          toFirestore: (repair, _) => repair.toMap(),
+        )
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
+  }
+
+  Stream<List<RepairRequest>> streamFilteredRepairRequests({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? status,
+    String? requesterId,
+  }) {
+    Query<RepairRequest> query = _firestore
+        .collection('repair_requests')
+        .withConverter<RepairRequest>(
+          fromFirestore:
+              (snapshot, _) =>
+                  RepairRequest.fromMap(snapshot.data()!, snapshot.id),
+          toFirestore: (repair, _) => repair.toMap(),
+        );
+
+    if (requesterId != null) {
+      query = query.where('requesterId', isEqualTo: requesterId);
+    }
+    if (status != null && status != 'All') {
+      query = query.where('status', isEqualTo: status.toLowerCase());
+    }
+    if (startDate != null) {
+      query = query.where(
+        'createdAt',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
+      );
+    }
+    if (endDate != null) {
+      query = query.where(
+        'createdAt',
+        isLessThanOrEqualTo: Timestamp.fromDate(endDate),
+      );
+    }
+
+    return query
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
+  }
+
+  Future<void> updateRepairRequestStatus(
+    String id,
+    String status, {
+    String? reason,
+    String? estimation,
+    String? itemId,
+  }) async {
+    final data = <String, dynamic>{'status': status};
+
+    if (reason != null) data['reason'] = reason;
+    if (estimation != null) data['estimation'] = estimation;
+    if (itemId != null) data['itemId'] = itemId;
+
+    await _firestore.collection('repair_requests').doc(id).update(data);
+  }
+
+  Future<void> deleteRepairRequest(String id) async {
+    await _firestore.collection('repair_requests').doc(id).delete();
+  }
+
+  Future<RepairRequest?> getRepairRequestById(String id) async {
+    if (id.isEmpty) return null;
+    final doc = await _firestore.collection('repair_requests').doc(id).get();
+    if (doc.exists) {
+      return RepairRequest.fromMap(doc.data()!, id);
+    }
+    return null;
   }
 
   // ---------------- Notifications ----------------

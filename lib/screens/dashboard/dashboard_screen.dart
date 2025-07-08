@@ -17,6 +17,8 @@ import '../inventory/manage_requests_screen.dart';
 import '../inventory/general_items_screen.dart';
 import '../inventory/return_item_screen.dart';
 import '../admin/add_user_screen.dart';
+import '../repair/repair_request_screen.dart';
+import '../repair/manage_repairs_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -91,6 +93,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         });
         break;
+      case 2:
+        if (_authService.currentUser!.uid.isNotEmpty) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (_) => ManageRepairsScreen(
+                    currentUserId: _authService.currentUser!.uid,
+                  ),
+            ),
+          );
+        }
+        break;
     }
   }
 
@@ -116,6 +131,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const BottomNavigationBarItem(
               icon: Icon(Icons.person_add),
               label: 'Add User',
+            ),
+          );
+          navItems.add(
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.build),
+              label: 'Manage Repairs',
             ),
           );
         } else {
@@ -244,6 +265,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
               gradient: const LinearGradient(
                 colors: [Color(0xFFE91E63), Color(0xFFD81B60)],
+              ),
+            ),
+          if (role == 'user' || role == 'care')
+            NavigationCard(
+              title: 'Request Repair',
+              icon: Icons.build,
+              onTap:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RepairRequestScreen(),
+                    ),
+                  ),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF009688), Color(0xFF00796B)],
               ),
             ),
         ];
