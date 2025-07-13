@@ -1,64 +1,57 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:uuid/uuid.dart';
 import '../../core/constants/typography.dart';
-import '../../core/services/auth_service.dart';
+import '../../core/models/student.dart';
 import '../../core/services/firestore_service.dart';
-import '../../core/models/user_model.dart';
 
-class AddUserScreen extends StatefulWidget {
-  const AddUserScreen({super.key});
+class StudentScreen extends StatefulWidget {
+  const StudentScreen({super.key});
 
   @override
-  _AddUserScreenState createState() => _AddUserScreenState();
+  _StudentScreenState createState() => _StudentScreenState();
 }
 
-class _AddUserScreenState extends State<AddUserScreen> {
+class _StudentScreenState extends State<StudentScreen> {
   final FirestoreService _firestoreService = FirestoreService();
-  final AuthService _authService = AuthService();
-  final TextEditingController _searchController = TextEditingController();
-  List<UserModel> _users = [];
-  List<UserModel> _filteredUsers = [];
+  final _searchController = TextEditingController();
+  List<Student> _students = [];
+  List<Student> _filteredStudents = [];
   bool _isLoading = true;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadUsers();
-    _searchController.addListener(_filterUsers);
+    _loadStudents();
+    _searchController.addListener(_filterStudents);
   }
 
-  Future<void> _loadUsers() async {
+  Future<void> _loadStudents() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final userEmails = await _firestoreService.getAllUserEmails();
-      final users = <UserModel>[];
-      for (final email in userEmails) {
-        final user = await _firestoreService.getUserByEmail(email);
-        if (user != null) {
-          users.add(user);
-        }
-      }
+      final students = await _firestoreService.getAllStudents().first;
       setState(() {
-        _users = users;
-        _filteredUsers = users;
+        _students = students;
+        _filteredStudents = students;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error loading users: $e';
+        _errorMessage = 'Error loading students: $e';
         _isLoading = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Error loading users: $e',
-              style: AppTypography.bodyText.copyWith(color: Colors.white),
+              'Error loading students: $e',
+              style: AppTypography.bodyText,
             ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
@@ -71,187 +64,179 @@ class _AddUserScreenState extends State<AddUserScreen> {
     }
   }
 
-  void _filterUsers() {
+  void _filterStudents() {
     final query = _searchController.text.trim().toLowerCase();
     if (query.isEmpty) {
       setState(() {
-        _filteredUsers = _users;
+        _filteredStudents = _students;
       });
       return;
     }
 
     setState(() {
-      _filteredUsers =
-          _users.where((user) {
-            final emailMatch = user.email.toLowerCase().contains(query);
-            final nameMatch = user.name?.toLowerCase().contains(query) ?? false;
-            return emailMatch || nameMatch;
+      _filteredStudents =
+          _students.where((student) {
+            final nameMatch = student.name.toLowerCase().contains(query);
+            final classMatch = student.className.toLowerCase().contains(query);
+            return nameMatch || classMatch;
           }).toList();
     });
   }
 
-  void _showAddUserDialog() {
+  Future<void> _addStudent(String name, String className) async {
+    final student = Student(
+      id: const Uuid().v4(),
+      name: name.trim(),
+      className: className.trim(),
+      createdAt: DateTime.now(),
+    );
+    try {
+      await _firestoreService.addStudent(student);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Student added successfully',
+              style: AppTypography.bodyText,
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+      await _loadStudents();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error adding student: $e',
+              style: AppTypography.bodyText,
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateStudent(
+    Student student,
+    String newName,
+    String newClass,
+  ) async {
+    try {
+      await _firestoreService.updateStudent(student.id, {
+        'name': newName,
+        'className': newClass,
+        'createdAt': Timestamp.fromDate(student.createdAt),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Student updated successfully',
+              style: AppTypography.bodyText,
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+      await _loadStudents();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error updating student: $e',
+              style: AppTypography.bodyText,
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteStudent(String id) async {
+    try {
+      await _firestoreService.deleteStudent(id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Student deleted successfully',
+              style: AppTypography.bodyText,
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+      await _loadStudents();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error deleting student: $e',
+              style: AppTypography.bodyText,
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showAddStudentDialog() {
     showDialog(
       context: context,
       builder:
-          (context) => AddUserDialog(
-            onAddUser: (email, name, role) async {
-              try {
-                final userCredential = await _authService.createUserWithEmail(
-                  email,
-                  name: name,
-                );
-                final uid = userCredential.user!.uid;
-
-                await _firestoreService.sendUserToFirestore(
-                  uid,
-                  email,
-                  name: name.isNotEmpty ? name : null,
-                  role: role,
-                );
-
-                await _authService.sendPasswordResetEmail(email);
-
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'User created and password reset email sent',
-                        style: AppTypography.bodyText.copyWith(
-                          color: Colors.white,
-                        ),
-                      ),
-                      backgroundColor: const Color(0xFF4CAF50),
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  );
-                }
-
-                await _loadUsers();
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Error creating user: $e',
-                        style: AppTypography.bodyText.copyWith(
-                          color: Colors.white,
-                        ),
-                      ),
-                      backgroundColor: Colors.red,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  );
-                }
-              }
+          (context) => AddStudentDialog(
+            onAddStudent: (name, className) async {
+              await _addStudent(name, className);
             },
           ),
     );
   }
 
-  Future<void> _updateUser(
-    UserModel user,
-    String newName,
-    String newRole,
-  ) async {
-    try {
-      await _firestoreService.updateUser(user.uid, {
-        'name': newName.isNotEmpty ? newName : null,
-        'role': newRole,
-      });
-      if (newName.isNotEmpty) {
-        await _authService.updateProfile(newName);
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'User updated successfully',
-              style: AppTypography.bodyText.copyWith(color: Colors.white),
-            ),
-            backgroundColor: const Color(0xFF4CAF50),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
-      }
-      await _loadUsers();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error updating user: $e',
-              style: AppTypography.bodyText.copyWith(color: Colors.white),
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  void _showEditUserDialog(UserModel user) {
+  void _showEditStudentDialog(Student student) {
     showDialog(
       context: context,
       builder:
-          (context) => EditUserDialog(
-            user: user,
-            onUpdate: (newName, newRole) => _updateUser(user, newName, newRole),
+          (context) => EditStudentDialog(
+            student: student,
+            onUpdate:
+                (newName, newClass) =>
+                    _updateStudent(student, newName, newClass),
           ),
     );
   }
 
-  Future<void> _resetPassword(String email) async {
-    try {
-      await _authService.sendPasswordResetEmail(email);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Password reset email sent to $email',
-              style: AppTypography.bodyText.copyWith(color: Colors.white),
-            ),
-            backgroundColor: const Color(0xFF4CAF50),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error sending password reset email: $e',
-              style: AppTypography.bodyText.copyWith(color: Colors.white),
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  void _showResetPasswordDialog(UserModel user) {
+  void _showDeleteStudentDialog(Student student) {
     showDialog(
       context: context,
       builder:
@@ -259,9 +244,9 @@ class _AddUserScreenState extends State<AddUserScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            title: Text('Reset Password', style: AppTypography.heading2),
+            title: Text('Delete Student', style: AppTypography.heading2),
             content: Text(
-              'Are you sure you want to send a password reset email to ${user.email}?',
+              'Are you sure you want to delete ${student.name}?',
               style: AppTypography.bodyText,
             ),
             actions: [
@@ -274,120 +259,16 @@ class _AddUserScreenState extends State<AddUserScreen> {
               ),
               ElevatedButton(
                 onPressed: () async {
-                  await _resetPassword(user.email);
+                  await _deleteStudent(student.id);
                   Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4CAF50),
+                  backgroundColor: Colors.red,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: Text('Send', style: AppTypography.buttonText),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Future<void> _deleteUser(UserModel user) async {
-    if (_authService.currentUser?.uid == user.uid) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Cannot delete your own account',
-              style: AppTypography.bodyText.copyWith(color: Colors.white),
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
-      }
-      return;
-    }
-
-    try {
-      await _firestoreService.deleteUser(user.uid);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'User ${user.email} deleted successfully',
-              style: AppTypography.bodyText.copyWith(color: Colors.white),
-            ),
-            backgroundColor: const Color(0xFF4CAF50),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
-      }
-      await _loadUsers();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error deleting user: $e',
-              style: AppTypography.bodyText.copyWith(color: Colors.white),
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  void _showDeleteUserDialog(UserModel user) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Text(
-              'Delete User',
-              style: AppTypography.heading2.copyWith(
-                color: const Color(0xFFE57373),
-              ),
-            ),
-            content: Text(
-              'Are you sure you want to delete ${user.email}? This will remove their data, including inventory, requests, and activities. This action cannot be undone.',
-              style: AppTypography.bodyText,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(
-                  'Cancel',
-                  style: AppTypography.bodyText.copyWith(color: Colors.grey),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  await _deleteUser(user);
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE57373),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Text(
-                  'Delete',
-                  style: AppTypography.buttonText.copyWith(color: Colors.white),
-                ),
+                child: Text('Delete', style: AppTypography.buttonText),
               ),
             ],
           ),
@@ -397,15 +278,9 @@ class _AddUserScreenState extends State<AddUserScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: Text(
-          'Manage Users',
-          style: AppTypography.heading1.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: const Text('Manage Students', style: AppTypography.heading1),
         elevation: 0,
         backgroundColor: Colors.transparent,
         flexibleSpace: Container(
@@ -415,19 +290,17 @@ class _AddUserScreenState extends State<AddUserScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
-          tooltip: 'Back',
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddUserDialog,
+        onPressed: _showAddStudentDialog,
         backgroundColor: Colors.transparent,
-        elevation: 3,
+        elevation: 4,
         child: Container(
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
@@ -443,38 +316,29 @@ class _AddUserScreenState extends State<AddUserScreen> {
       body: SafeArea(
         child:
             _isLoading
-                ? const Center(
-                  child: CircularProgressIndicator(
-                    color: Color(0xFF4CAF50),
-                    strokeWidth: 3,
-                  ),
-                )
+                ? const Center(child: CircularProgressIndicator())
                 : Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 12.0,
-                  ),
+                  padding: const EdgeInsets.all(16.0),
                   child: AnimationLimiter(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         AnimationConfiguration.staggeredList(
                           position: 0,
-                          duration: const Duration(milliseconds: 400),
+                          duration: const Duration(milliseconds: 375),
                           child: SlideAnimation(
                             verticalOffset: 50.0,
                             child: FadeInAnimation(
                               child: TextFormField(
                                 controller: _searchController,
                                 decoration: InputDecoration(
-                                  hintText: 'Search by email or name',
+                                  hintText: 'Search by name or class',
                                   hintStyle: AppTypography.bodyText.copyWith(
-                                    color: Colors.grey[600],
+                                    color: Colors.grey,
                                   ),
                                   prefixIcon: const Icon(
                                     Icons.search,
                                     color: Colors.grey,
-                                    size: 24,
                                   ),
                                   filled: true,
                                   fillColor: Colors.white,
@@ -486,7 +350,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
                                     borderRadius: BorderRadius.circular(12),
                                     borderSide: const BorderSide(
                                       color: Color(0xFF4CAF50),
-                                      width: 2,
                                     ),
                                   ),
                                   contentPadding: const EdgeInsets.symmetric(
@@ -495,7 +358,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
                                   ),
                                 ),
                                 style: AppTypography.bodyText,
-                                onChanged: (_) => _filterUsers(),
+                                onChanged: (_) => _filterStudents(),
                               ),
                             ),
                           ),
@@ -504,7 +367,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
                         if (_errorMessage != null)
                           AnimationConfiguration.staggeredList(
                             position: 1,
-                            duration: const Duration(milliseconds: 400),
+                            duration: const Duration(milliseconds: 375),
                             child: SlideAnimation(
                               verticalOffset: 50.0,
                               child: FadeInAnimation(
@@ -522,75 +385,85 @@ class _AddUserScreenState extends State<AddUserScreen> {
                           ),
                         Expanded(
                           child:
-                              _filteredUsers.isEmpty
+                              _filteredStudents.isEmpty
                                   ? AnimationConfiguration.staggeredList(
                                     position: 2,
-                                    duration: const Duration(milliseconds: 400),
+                                    duration: const Duration(milliseconds: 375),
                                     child: SlideAnimation(
                                       verticalOffset: 50.0,
                                       child: FadeInAnimation(
                                         child: Center(
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(
-                                                Icons.person_off,
-                                                size: 64,
-                                                color: Colors.grey,
-                                              ),
-                                              const SizedBox(height: 16),
-                                              Text(
-                                                'No users found',
-                                                style: AppTypography.bodyText
-                                                    .copyWith(
-                                                      color: Colors.grey[600],
-                                                      fontSize: 18,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                'Try adding a new user or adjusting your search.',
-                                                style: AppTypography.caption
-                                                    .copyWith(
-                                                      color: Colors.grey[500],
-                                                    ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ],
+                                          child: Text(
+                                            'No students found',
+                                            style: AppTypography.bodyText
+                                                .copyWith(color: Colors.grey),
                                           ),
                                         ),
                                       ),
                                     ),
                                   )
-                                  : ListView.builder(
-                                    itemCount: _filteredUsers.length,
-                                    itemBuilder: (context, index) {
-                                      final user = _filteredUsers[index];
-                                      return AnimationConfiguration.staggeredList(
-                                        position: index,
-                                        duration: const Duration(
-                                          milliseconds: 400,
-                                        ),
-                                        child: SlideAnimation(
-                                          verticalOffset: 50.0,
-                                          child: FadeInAnimation(
-                                            child: UserCard(
-                                              user: user,
-                                              onEdit:
-                                                  () =>
-                                                      _showEditUserDialog(user),
-                                              onResetPassword:
-                                                  () =>
-                                                      _showResetPasswordDialog(
-                                                        user,
-                                                      ),
-                                              onDelete:
-                                                  () => _showDeleteUserDialog(
-                                                    user,
-                                                  ),
+                                  : StreamBuilder<List<Student>>(
+                                    stream: _firestoreService.getAllStudents(),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return const Center(
+                                          child: CircularProgressIndicator(),
+                                        );
+                                      }
+                                      if (snapshot.hasError) {
+                                        return Text(
+                                          'Error: ${snapshot.error}',
+                                          style: AppTypography.bodyText
+                                              .copyWith(color: Colors.red),
+                                        );
+                                      }
+                                      if (!snapshot.hasData ||
+                                          snapshot.data!.isEmpty) {
+                                        return Text(
+                                          'No students found',
+                                          style: AppTypography.bodyText,
+                                        );
+                                      }
+                                      final students =
+                                          snapshot.data!
+                                              .where(
+                                                (student) =>
+                                                    _filteredStudents.any(
+                                                      (fs) =>
+                                                          fs.id == student.id,
+                                                    ),
+                                              )
+                                              .toList();
+                                      return ListView.builder(
+                                        itemCount: students.length,
+                                        itemBuilder: (context, index) {
+                                          final student = students[index];
+                                          return AnimationConfiguration.staggeredList(
+                                            position: index,
+                                            duration: const Duration(
+                                              milliseconds: 375,
                                             ),
-                                          ),
-                                        ),
+                                            child: SlideAnimation(
+                                              verticalOffset: 50.0,
+                                              child: FadeInAnimation(
+                                                child: StudentCard(
+                                                  student: student,
+                                                  onEdit:
+                                                      () =>
+                                                          _showEditStudentDialog(
+                                                            student,
+                                                          ),
+                                                  onDelete:
+                                                      () =>
+                                                          _showDeleteStudentDialog(
+                                                            student,
+                                                          ),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       );
                                     },
                                   ),
@@ -605,32 +478,31 @@ class _AddUserScreenState extends State<AddUserScreen> {
 
   @override
   void dispose() {
-    _searchController.removeListener(_filterUsers);
+    _searchController.removeListener(_filterStudents);
     _searchController.dispose();
     super.dispose();
   }
 }
 
-class AddUserDialog extends StatefulWidget {
-  final Function(String email, String name, String role) onAddUser;
+class AddStudentDialog extends StatefulWidget {
+  final Function(String name, String className) onAddStudent;
 
-  const AddUserDialog({super.key, required this.onAddUser});
+  const AddStudentDialog({super.key, required this.onAddStudent});
 
   @override
-  _AddUserDialogState createState() => _AddUserDialogState();
+  _AddStudentDialogState createState() => _AddStudentDialogState();
 }
 
-class _AddUserDialogState extends State<AddUserDialog> {
+class _AddStudentDialogState extends State<AddStudentDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
   final _nameController = TextEditingController();
-  String _selectedRole = 'user';
+  final _classController = TextEditingController();
   bool _isSubmitting = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
     _nameController.dispose();
+    _classController.dispose();
     super.dispose();
   }
 
@@ -658,7 +530,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: AnimationConfiguration.toStaggeredList(
-                duration: const Duration(milliseconds: 400),
+                duration: const Duration(milliseconds: 375),
                 childAnimationBuilder:
                     (widget) => SlideAnimation(
                       verticalOffset: 20.0,
@@ -666,18 +538,18 @@ class _AddUserDialogState extends State<AddUserDialog> {
                     ),
                 children: [
                   Text(
-                    'Add New User',
+                    'Add New Student',
                     style: AppTypography.heading2.copyWith(
                       color: const Color(0xFF4CAF50),
                     ),
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-                    controller: _emailController,
+                    controller: _nameController,
                     decoration: InputDecoration(
-                      labelText: 'Email',
+                      labelText: 'Name',
                       labelStyle: AppTypography.bodyText.copyWith(
-                        color: Colors.grey[600],
+                        color: Colors.grey,
                       ),
                       filled: true,
                       fillColor: Colors.white,
@@ -687,37 +559,24 @@ class _AddUserDialogState extends State<AddUserDialog> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF4CAF50),
-                          width: 2,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 12,
+                        borderSide: const BorderSide(color: Color(0xFF4CAF50)),
                       ),
                     ),
-                    keyboardType: TextInputType.emailAddress,
                     style: AppTypography.bodyText,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Please enter an email';
-                      }
-                      if (!RegExp(
-                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                      ).hasMatch(value)) {
-                        return 'Please enter a valid email';
+                        return 'Please enter a name';
                       }
                       return null;
                     },
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
-                    controller: _nameController,
+                    controller: _classController,
                     decoration: InputDecoration(
-                      labelText: 'Name (Optional)',
+                      labelText: 'Class',
                       labelStyle: AppTypography.bodyText.copyWith(
-                        color: Colors.grey[600],
+                        color: Colors.grey,
                       ),
                       filled: true,
                       fillColor: Colors.white,
@@ -727,58 +586,16 @@ class _AddUserDialogState extends State<AddUserDialog> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF4CAF50),
-                          width: 2,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 12,
+                        borderSide: const BorderSide(color: Color(0xFF4CAF50)),
                       ),
                     ),
                     style: AppTypography.bodyText,
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: _selectedRole,
-                    decoration: InputDecoration(
-                      labelText: 'Role',
-                      labelStyle: AppTypography.bodyText.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF4CAF50),
-                          width: 2,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 12,
-                      ),
-                    ),
-                    style: AppTypography.bodyText,
-                    items:
-                        ['user', 'care', 'admin'].map((role) {
-                          return DropdownMenuItem<String>(
-                            value: role,
-                            child: Text(
-                              role.isNotEmpty
-                                  ? '${role.substring(0, 1).toUpperCase()}${role.substring(1)}'
-                                  : role,
-                            ),
-                          );
-                        }).toList(),
-                    onChanged:
-                        (value) => setState(() => _selectedRole = value!),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter a class';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -801,10 +618,9 @@ class _AddUserDialogState extends State<AddUserDialog> {
                                 : () async {
                                   if (_formKey.currentState!.validate()) {
                                     setState(() => _isSubmitting = true);
-                                    await widget.onAddUser(
-                                      _emailController.text.trim(),
+                                    await widget.onAddStudent(
                                       _nameController.text.trim(),
-                                      _selectedRole,
+                                      _classController.text.trim(),
                                     );
                                     setState(() => _isSubmitting = false);
                                     Navigator.pop(context);
@@ -839,7 +655,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
                                     ),
                                   )
                                   : Text(
-                                    'Add User',
+                                    'Add Student',
                                     style: AppTypography.bodyText.copyWith(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
@@ -859,30 +675,35 @@ class _AddUserDialogState extends State<AddUserDialog> {
   }
 }
 
-class EditUserDialog extends StatefulWidget {
-  final UserModel user;
-  final Function(String newName, String newRole) onUpdate;
+class EditStudentDialog extends StatefulWidget {
+  final Student student;
+  final Function(String newName, String newClass) onUpdate;
 
-  const EditUserDialog({super.key, required this.user, required this.onUpdate});
+  const EditStudentDialog({
+    super.key,
+    required this.student,
+    required this.onUpdate,
+  });
 
   @override
-  _EditUserDialogState createState() => _EditUserDialogState();
+  _EditStudentDialogState createState() => _EditStudentDialogState();
 }
 
-class _EditUserDialogState extends State<EditUserDialog> {
+class _EditStudentDialogState extends State<EditStudentDialog> {
   final _nameController = TextEditingController();
-  String _selectedRole = 'user';
+  final _classController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _nameController.text = widget.user.name ?? '';
-    _selectedRole = widget.user.role;
+    _nameController.text = widget.student.name;
+    _classController.text = widget.student.className;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _classController.dispose();
     super.dispose();
   }
 
@@ -908,7 +729,7 @@ class _EditUserDialogState extends State<EditUserDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: AnimationConfiguration.toStaggeredList(
-              duration: const Duration(milliseconds: 400),
+              duration: const Duration(milliseconds: 375),
               childAnimationBuilder:
                   (widget) => SlideAnimation(
                     verticalOffset: 20.0,
@@ -916,7 +737,7 @@ class _EditUserDialogState extends State<EditUserDialog> {
                   ),
               children: [
                 Text(
-                  'Edit User',
+                  'Edit Student',
                   style: AppTypography.heading2.copyWith(
                     color: const Color(0xFF4CAF50),
                   ),
@@ -925,9 +746,9 @@ class _EditUserDialogState extends State<EditUserDialog> {
                 TextFormField(
                   controller: _nameController,
                   decoration: InputDecoration(
-                    labelText: 'Name (Optional)',
+                    labelText: 'Name',
                     labelStyle: AppTypography.bodyText.copyWith(
-                      color: Colors.grey[600],
+                      color: Colors.grey,
                     ),
                     filled: true,
                     fillColor: Colors.white,
@@ -937,25 +758,18 @@ class _EditUserDialogState extends State<EditUserDialog> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF4CAF50),
-                        width: 2,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 12,
+                      borderSide: const BorderSide(color: Color(0xFF4CAF50)),
                     ),
                   ),
                   style: AppTypography.bodyText,
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: _selectedRole,
+                TextFormField(
+                  controller: _classController,
                   decoration: InputDecoration(
-                    labelText: 'Role',
+                    labelText: 'Class',
                     labelStyle: AppTypography.bodyText.copyWith(
-                      color: Colors.grey[600],
+                      color: Colors.grey,
                     ),
                     filled: true,
                     fillColor: Colors.white,
@@ -965,29 +779,10 @@ class _EditUserDialogState extends State<EditUserDialog> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF4CAF50),
-                        width: 2,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 12,
+                      borderSide: const BorderSide(color: Color(0xFF4CAF50)),
                     ),
                   ),
                   style: AppTypography.bodyText,
-                  items:
-                      ['user', 'care', 'admin'].map((role) {
-                        return DropdownMenuItem<String>(
-                          value: role,
-                          child: Text(
-                            role.isNotEmpty
-                                ? '${role.substring(0, 1).toUpperCase()}${role.substring(1)}'
-                                : role,
-                          ),
-                        );
-                      }).toList(),
-                  onChanged: (value) => setState(() => _selectedRole = value!),
                 ),
                 const SizedBox(height: 20),
                 Row(
@@ -1007,7 +802,7 @@ class _EditUserDialogState extends State<EditUserDialog> {
                       onTap: () {
                         widget.onUpdate(
                           _nameController.text.trim(),
-                          _selectedRole,
+                          _classController.text.trim(),
                         );
                         Navigator.pop(context);
                       },
@@ -1049,30 +844,28 @@ class _EditUserDialogState extends State<EditUserDialog> {
   }
 }
 
-class UserCard extends StatelessWidget {
-  final UserModel user;
+class StudentCard extends StatelessWidget {
+  final Student student;
   final VoidCallback onEdit;
-  final VoidCallback onResetPassword;
   final VoidCallback onDelete;
 
-  const UserCard({
+  const StudentCard({
     super.key,
-    required this.user,
+    required this.student,
     required this.onEdit,
-    required this.onResetPassword,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 3,
+      elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.only(bottom: 12),
       child: Container(
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFC)],
+            colors: [Color(0xFFFFFFFF), Color(0xFFF5F5F5)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -1084,15 +877,9 @@ class UserCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 backgroundColor: const Color(0xFF4CAF50),
-                radius: 24,
                 child: Text(
-                  user.name != null && user.name!.isNotEmpty
-                      ? user.name!.substring(0, 1).toUpperCase()
-                      : user.email.substring(0, 1).toUpperCase(),
-                  style: AppTypography.bodyText.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  student.name.substring(0, 1).toUpperCase(),
+                  style: AppTypography.bodyText.copyWith(color: Colors.white),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1101,46 +888,29 @@ class UserCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      user.email,
+                      student.name,
                       style: AppTypography.bodyText.copyWith(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.bold,
                         color: Colors.black87,
-                        fontSize: 15,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Name: ${user.name ?? 'N/A'} | Role: ${user.role.isNotEmpty ? '${user.role.substring(0, 1).toUpperCase()}${user.role.substring(1)}' : user.role}',
-                      style: AppTypography.caption.copyWith(
-                        color: Colors.grey[600],
-                      ),
+                      'Class: ${student.className}',
+                      style: AppTypography.caption.copyWith(color: Colors.grey),
                     ),
                   ],
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.edit, color: Colors.blue, size: 24),
+                icon: const Icon(Icons.edit, color: Colors.blue),
                 onPressed: onEdit,
-                tooltip: 'Edit User',
+                tooltip: 'Edit Student',
               ),
               IconButton(
-                icon: const Icon(
-                  Icons.lock_reset,
-                  color: Colors.orange,
-                  size: 24,
-                ),
-                onPressed: onResetPassword,
-                tooltip: 'Reset Password',
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.delete,
-                  color: Color(0xFFE57373),
-                  size: 24,
-                ),
+                icon: const Icon(Icons.delete, color: Colors.red),
                 onPressed: onDelete,
-                tooltip: 'Delete User',
+                tooltip: 'Delete Student',
               ),
             ],
           ),

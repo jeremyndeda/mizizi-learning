@@ -1,4 +1,6 @@
+import 'package:Mizizi/core/models/activity_register.dart';
 import 'package:Mizizi/core/models/repair_request.dart';
+import 'package:Mizizi/core/models/student.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../models/inventory_item.dart';
@@ -6,6 +8,7 @@ import '../models/user_model.dart';
 import '../models/notification_model.dart';
 import '../models/item_request.dart';
 import '../models/general_item.dart';
+import '../models/activity.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -273,6 +276,89 @@ class FirestoreService {
           'linkedUserIds': currentLinkedIds,
         });
       }
+    }
+  }
+
+  // Delete user and related data
+  Future<void> deleteUser(String uid) async {
+    try {
+      // Delete user document
+      await _firestore.collection('users').doc(uid).delete();
+
+      // Delete user's notifications
+      final notificationsSnapshot =
+          await _firestore
+              .collection('notifications')
+              .where('userId', isEqualTo: uid)
+              .get();
+      for (var doc in notificationsSnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      // Remove user from linkedUserIds in other users
+      final usersSnapshot =
+          await _firestore
+              .collection('users')
+              .where('linkedUserIds', arrayContains: uid)
+              .get();
+      for (var doc in usersSnapshot.docs) {
+        final linkedUserIds = List<String>.from(
+          doc.data()['linkedUserIds'] ?? [],
+        );
+        linkedUserIds.remove(uid);
+        await doc.reference.update({'linkedUserIds': linkedUserIds});
+      }
+
+      // Delete user's inventory items
+      final inventorySnapshot =
+          await _firestore
+              .collection('inventory')
+              .where('userId', isEqualTo: uid)
+              .get();
+      for (var doc in inventorySnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      // Delete user's item requests
+      final itemRequestsSnapshot =
+          await _firestore
+              .collection('item_requests')
+              .where('requesterId', isEqualTo: uid)
+              .get();
+      for (var doc in itemRequestsSnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      // Delete user's repair requests
+      final repairRequestsSnapshot =
+          await _firestore
+              .collection('repair_requests')
+              .where('requesterId', isEqualTo: uid)
+              .get();
+      for (var doc in repairRequestsSnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      // Delete user's activities and associated registers
+      final activitiesSnapshot =
+          await _firestore
+              .collection('activities')
+              .where('teacherId', isEqualTo: uid)
+              .get();
+      for (var doc in activitiesSnapshot.docs) {
+        final activityId = doc.id;
+        final registersSnapshot =
+            await _firestore
+                .collection('registers')
+                .where('activityId', isEqualTo: activityId)
+                .get();
+        for (var regDoc in registersSnapshot.docs) {
+          await regDoc.reference.delete();
+        }
+        await doc.reference.delete();
+      }
+    } catch (e) {
+      throw Exception('Error deleting user: $e');
     }
   }
 
@@ -638,5 +724,141 @@ class FirestoreService {
       return GeneralItem.fromMap(doc.data()!, id);
     }
     return null;
+  }
+
+  // ---------------- Students ----------------
+
+  Future<void> addStudent(Student student) async {
+    await _firestore
+        .collection('students')
+        .doc(student.id)
+        .set(student.toMap());
+  }
+
+  Stream<List<Student>> getAllStudents() {
+    return _firestore
+        .collection('students')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => Student.fromMap(doc.data(), doc.id))
+                  .toList(),
+        );
+  }
+
+  Future<void> updateStudent(String id, Map<String, dynamic> data) async {
+    await _firestore.collection('students').doc(id).update(data);
+  }
+
+  Future<void> deleteStudent(String id) async {
+    await _firestore.collection('students').doc(id).delete();
+  }
+
+  Future<Student?> getStudentById(String id) async {
+    if (id.isEmpty) return null;
+    final doc = await _firestore.collection('students').doc(id).get();
+    if (doc.exists) {
+      return Student.fromMap(doc.data()!, id);
+    }
+    return null;
+  }
+
+  // ---------------- Activities ----------------
+
+  Future<void> addActivity(Activity activity) async {
+    await _firestore
+        .collection('activities')
+        .doc(activity.id)
+        .set(activity.toMap());
+  }
+
+  Stream<List<Activity>> getUserActivities(String userId) {
+    return _firestore
+        .collection('activities')
+        .where('teacherId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => Activity.fromMap(doc.data(), doc.id))
+                  .toList(),
+        );
+  }
+
+  Future<void> updateActivity(String id, Map<String, dynamic> data) async {
+    await _firestore.collection('activities').doc(id).update(data);
+  }
+
+  Future<void> deleteActivity(String id) async {
+    await _firestore.collection('activities').doc(id).delete();
+  }
+
+  Future<Activity?> getActivityById(String id) async {
+    if (id.isEmpty) return null;
+    final doc = await _firestore.collection('activities').doc(id).get();
+    if (doc.exists) {
+      return Activity.fromMap(doc.data()!, id);
+    }
+    return null;
+  }
+
+  Future<void> addActivityRegister(ActivityRegister register) async {
+    await _firestore
+        .collection('registers')
+        .doc(register.id)
+        .set(register.toMap());
+  }
+
+  Future<void> deleteActivityRegister(String id) async {
+    await _firestore.collection('registers').doc(id).delete();
+  }
+
+  // Updated getAllActivities to ensure no teacherId filter for admins
+  Stream<List<Activity>> getAllActivities() {
+    return _firestore
+        .collection('activities')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => Activity.fromMap(doc.data(), doc.id))
+                  .toList(),
+        );
+  }
+
+  // Check if user is assigned as teacher to an activity
+  Future<bool> isUserTeacherForActivity(
+    String activityId,
+    String userId,
+  ) async {
+    final doc = await _firestore.collection('activities').doc(activityId).get();
+    if (!doc.exists) return false;
+    final activity = Activity.fromMap(doc.data()!, doc.id);
+    return activity.teacherId == userId;
+  }
+
+  Stream<List<ActivityRegister>> getActivityRegisters(String activityId) {
+    return _firestore
+        .collection('registers')
+        .where('activityId', isEqualTo: activityId)
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => ActivityRegister.fromMap(doc.data(), doc.id))
+                  .toList(),
+        );
+  }
+
+  Future<List<UserModel>> getAllUsers() async {
+    final snapshot = await _firestore.collection('users').get();
+    return snapshot.docs
+        .map((doc) => UserModel.fromMap(doc.data(), doc.id))
+        .toList();
   }
 }

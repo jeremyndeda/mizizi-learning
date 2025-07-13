@@ -1,3 +1,5 @@
+import 'package:Mizizi/screens/student/student_screen.dart';
+import 'package:Mizizi/screens/activity/activity_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:badges/badges.dart' as badges;
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -54,7 +56,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SnackBar(
             content: Text(
               'Error logging out: $e',
-              style: AppTypography.bodyText,
+              style: AppTypography.bodyText.copyWith(color: Colors.white),
             ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
@@ -106,6 +108,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
         }
         break;
+      case 3:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StudentScreen()),
+        );
+        break;
     }
   }
 
@@ -116,281 +124,332 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF4CAF50),
+                strokeWidth: 3,
+              ),
+            ),
           );
         }
         final role = snapshot.data ?? 'user';
         List<BottomNavigationBarItem> navItems = [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.widgets),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.widgets, size: 28),
             label: 'General Items',
+            tooltip: 'View General Items',
           ),
-        ];
-        if (role == 'admin') {
-          navItems.add(
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.person_add),
+          if (role == 'admin')
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.person_add, size: 28),
               label: 'Add User',
-            ),
-          );
-          navItems.add(
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.build),
-              label: 'Manage Repairs',
-            ),
-          );
-        } else {
-          navItems.add(
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.reply),
+              tooltip: 'Add New User',
+            )
+          else
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.reply, size: 28),
               label: 'Return Item',
+              tooltip: 'Return an Item',
             ),
-          );
-        }
+          if (role == 'admin')
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.build, size: 28),
+              label: 'Manage Repairs',
+              tooltip: 'Manage Repair Requests',
+            ),
+          if (role == 'admin')
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.school, size: 28),
+              label: 'Students',
+              tooltip: 'Manage Students',
+            ),
+        ];
 
-        return Scaffold(
-          backgroundColor: const Color(0xFFF5F5F5),
-          body: _buildDashboard(role),
-          bottomNavigationBar: BottomNavigationBar(
-            items: navItems,
-            currentIndex: _selectedIndex,
-            selectedItemColor: const Color(0xFF4CAF50),
-            unselectedItemColor: Colors.grey,
-            selectedLabelStyle: AppTypography.bodyText,
-            unselectedLabelStyle: AppTypography.caption,
-            backgroundColor: Colors.white,
-            elevation: 8,
-            onTap: _onItemTapped,
-          ),
+        return FutureBuilder(
+          future: _firestoreService.getUser(_authService.currentUser!.uid),
+          builder: (context, userSnapshot) {
+            String displayName =
+                _authService.currentUser?.displayName ?? 'User';
+            String firstLetter = 'X';
+
+            if (userSnapshot.hasData && userSnapshot.data != null) {
+              final user = userSnapshot.data!;
+              displayName = user.name ?? user.email.split('@')[0];
+              firstLetter =
+                  (user.name != null && user.name!.isNotEmpty)
+                      ? user.name!.substring(0, 1).toUpperCase()
+                      : user.email.substring(0, 1).toUpperCase();
+            } else if (_authService.currentUser?.email != null) {
+              displayName = _authService.currentUser!.email!.split('@')[0];
+              firstLetter =
+                  _authService.currentUser!.email!
+                      .substring(0, 1)
+                      .toUpperCase();
+            }
+
+            return Scaffold(
+              backgroundColor: const Color(0xFFF8FAFC),
+              body: _buildDashboard(role, displayName, firstLetter),
+              bottomNavigationBar: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4CAF50),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: BottomNavigationBar(
+                  items: navItems,
+                  currentIndex: _selectedIndex,
+                  selectedItemColor: Colors.white,
+                  unselectedItemColor: Colors.white70,
+                  selectedLabelStyle: AppTypography.bodyText.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                  unselectedLabelStyle: AppTypography.caption.copyWith(
+                    fontSize: 12,
+                  ),
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  type: BottomNavigationBarType.fixed,
+                  onTap: _onItemTapped,
+                ),
+              ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildDashboard(String role) {
-    return FutureBuilder(
-      future: _firestoreService.getUser(_authService.currentUser!.uid),
-      builder: (context, userSnapshot) {
-        if (userSnapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        String displayName = _authService.currentUser?.displayName ?? 'User';
-        String firstLetter = 'X';
-
-        if (userSnapshot.hasData && userSnapshot.data != null) {
-          final user = userSnapshot.data!;
-          displayName = user.name ?? user.email.split('@')[0];
-          firstLetter =
-              (user.name != null && user.name!.isNotEmpty)
-                  ? user.name!.substring(0, 1).toUpperCase()
-                  : user.email.substring(0, 1).toUpperCase();
-        } else if (_authService.currentUser?.email != null) {
-          displayName = _authService.currentUser!.email!.split('@')[0];
-          firstLetter =
-              _authService.currentUser!.email!.substring(0, 1).toUpperCase();
-        }
-
-        final List<Widget> navigationCards = [
-          if (role == 'admin')
-            NavigationCard(
-              title: 'All Inventory',
-              icon: Icons.inventory,
-              onTap:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AllInventoryScreen(),
-                    ),
-                  ),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
+  Widget _buildDashboard(String role, String displayName, String firstLetter) {
+    final List<Widget> navigationCards = [
+      if (role == 'admin')
+        NavigationCard(
+          title: 'All Inventory',
+          icon: Icons.inventory,
+          onTap:
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AllInventoryScreen()),
               ),
-            ),
-          NavigationCard(
-            title: 'My Inventory',
-            icon: Icons.person,
-            onTap:
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const UserInventoryScreen(),
-                  ),
-                ),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
-            ),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
           ),
-          NavigationCard(
-            title: 'Reports',
-            icon: Icons.report,
-            onTap:
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ProfileScreen(onLogout: _logout),
-                  ),
-                ),
-            gradient: const LinearGradient(
-              colors: [Color(0xFFF57C00), Color(0xFFEF6C00)],
+        ),
+      NavigationCard(
+        title: 'My Inventory',
+        icon: Icons.person,
+        onTap:
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const UserInventoryScreen()),
             ),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
+        ),
+      ),
+      NavigationCard(
+        title: 'Extra-Curricular Activity',
+        icon: Icons.event,
+        onTap:
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder:
+                    (_) => ActivityScreen(
+                      currentUserId: _authService.currentUser!.uid,
+                    ),
+              ),
+            ),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF57C00), Color(0xFFEF6C00)],
+        ),
+      ),
+      if (role == 'user' || role == 'care')
+        NavigationCard(
+          title: 'Request Item',
+          icon: Icons.add_shopping_cart,
+          onTap:
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const RequestItemScreen()),
+              ),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF9C27B0), Color(0xFF7B1FA2)],
           ),
-          if (role == 'user' || role == 'care')
-            NavigationCard(
-              title: 'Request Item',
-              icon: Icons.add_shopping_cart,
-              onTap:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const RequestItemScreen(),
-                    ),
-                  ),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF9C27B0), Color(0xFF7B1FA2)],
+        ),
+      if (role == 'admin')
+        NavigationCard(
+          title: 'Manage Requests',
+          icon: Icons.list_alt,
+          onTap:
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (_) => ManageRequestsScreen(
+                        currentUserId: _authService.currentUser!.uid,
+                      ),
+                ),
               ),
-            ),
-          if (role == 'admin')
-            NavigationCard(
-              title: 'Manage Requests',
-              icon: Icons.list_alt,
-              onTap:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (_) => ManageRequestsScreen(
-                            currentUserId: _authService.currentUser!.uid,
-                          ),
-                    ),
-                  ),
-              gradient: const LinearGradient(
-                colors: [Color(0xFFE91E63), Color(0xFFD81B60)],
+          gradient: const LinearGradient(
+            colors: [Color(0xFFE91E63), Color(0xFFD81B60)],
+          ),
+        ),
+      if (role == 'user' || role == 'care')
+        NavigationCard(
+          title: 'Request Repair',
+          icon: Icons.build,
+          onTap:
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const RepairRequestScreen()),
               ),
-            ),
-          if (role == 'user' || role == 'care')
-            NavigationCard(
-              title: 'Request Repair',
-              icon: Icons.build,
-              onTap:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const RepairRequestScreen(),
-                    ),
-                  ),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF009688), Color(0xFF00796B)],
-              ),
-            ),
-        ];
+          gradient: const LinearGradient(
+            colors: [Color(0xFF009688), Color(0xFF00796B)],
+          ),
+        ),
+    ];
 
-        return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () {
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProfileScreen(onLogout: _logout),
+                      ),
+                    );
+                  },
+                  child: CircleAvatar(
+                    backgroundColor: const Color(0xFF4CAF50),
+                    radius: 28,
+                    child: Text(
+                      firstLetter,
+                      style: AppTypography.heading2.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Welcome, $displayName',
+                        style: AppTypography.heading2.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        role == 'admin' ? 'Administrator' : 'User',
+                        style: AppTypography.caption.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                StreamBuilder<List<NotificationModel>>(
+                  stream: _firestoreService.getUserNotifications(
+                    _authService.currentUser!.uid,
+                  ),
+                  builder: (context, snapshot) {
+                    int unreadCount = 0;
+                    if (snapshot.hasData) {
+                      unreadCount =
+                          snapshot.data!.where((n) => !n.isRead).length;
+                    }
+                    return IconButton(
+                      icon: badges.Badge(
+                        badgeContent: Text(
+                          unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        showBadge: unreadCount > 0,
+                        badgeStyle: const badges.BadgeStyle(
+                          badgeColor: Color(0xFFE57373),
+                          padding: EdgeInsets.all(6),
+                        ),
+                        child: const Icon(
+                          Icons.notifications,
+                          color: Color(0xFF4CAF50),
+                          size: 28,
+                        ),
+                      ),
+                      onPressed: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => ProfileScreen(onLogout: _logout),
+                            builder: (_) => const NotificationsScreen(),
                           ),
                         );
                       },
-                      child: CircleAvatar(
-                        backgroundColor: Colors.grey[700],
-                        radius: 24,
-                        child: Text(
-                          firstLetter,
-                          style: AppTypography.heading2.copyWith(
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Welcome, $displayName',
-                        style: AppTypography.heading2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    StreamBuilder<List<NotificationModel>>(
-                      stream: _firestoreService.getUserNotifications(
-                        _authService.currentUser!.uid,
-                      ),
-                      builder: (context, snapshot) {
-                        int unreadCount = 0;
-                        if (snapshot.hasData) {
-                          unreadCount =
-                              snapshot.data!.where((n) => !n.isRead).length;
-                        }
-                        return IconButton(
-                          icon: badges.Badge(
-                            badgeContent: Text(
-                              unreadCount.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                              ),
-                            ),
-                            showBadge: unreadCount > 0,
-                            badgeStyle: const badges.BadgeStyle(
-                              badgeColor: Colors.red,
-                              padding: EdgeInsets.all(4),
-                            ),
-                            child: const Icon(
-                              Icons.notifications,
-                              color: Colors.grey,
-                            ),
-                          ),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const NotificationsScreen(),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ],
+                      tooltip: 'Notifications',
+                    );
+                  },
                 ),
-                const SizedBox(height: 24),
-                AnimationLimiter(
-                  child: GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    children: List.generate(navigationCards.length, (index) {
-                      return AnimationConfiguration.staggeredGrid(
-                        position: index,
-                        columnCount: 2,
-                        duration: const Duration(milliseconds: 375),
-                        child: ScaleAnimation(
-                          child: FadeInAnimation(child: navigationCards[index]),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text('Recent Inventory', style: AppTypography.heading2),
-                const SizedBox(height: 8),
-                InventoryList(userId: _authService.currentUser!.uid),
               ],
             ),
-          ),
-        );
-      },
+            const SizedBox(height: 24),
+            AnimationLimiter(
+              child: GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.1,
+                children: List.generate(navigationCards.length, (index) {
+                  return AnimationConfiguration.staggeredGrid(
+                    position: index,
+                    columnCount: 2,
+                    duration: const Duration(milliseconds: 400),
+                    child: ScaleAnimation(
+                      scale: 0.95,
+                      child: FadeInAnimation(child: navigationCards[index]),
+                    ),
+                  );
+                }),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Recent Inventory',
+              style: AppTypography.heading2.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 12),
+            InventoryList(userId: _authService.currentUser!.uid),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -412,20 +471,20 @@ class NavigationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Ink(
           decoration: BoxDecoration(
             gradient: gradient,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -434,15 +493,18 @@ class NavigationCard extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 32, color: Colors.white),
-                const SizedBox(height: 8),
+                Icon(icon, size: 36, color: Colors.white),
+                const SizedBox(height: 12),
                 Text(
                   title,
                   textAlign: TextAlign.center,
                   style: AppTypography.bodyText.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
+                    fontSize: 14,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
