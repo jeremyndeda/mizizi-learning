@@ -1323,91 +1323,121 @@ class ActivityCard extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                backgroundColor: const Color(0xFF4CAF50),
-                child: Text(
-                  activity.name.substring(0, 1).toUpperCase(),
-                  style: AppTypography.bodyText.copyWith(color: Colors.white),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      activity.name,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: const Color(0xFF4CAF50),
+                    child: Text(
+                      activity.name.substring(0, 1).toUpperCase(),
                       style: AppTypography.bodyText.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: Colors.white,
+                        fontSize: 18,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      activity.description,
-                      style: AppTypography.caption.copyWith(color: Colors.grey),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    FutureBuilder<UserModel?>(
-                      future: FirestoreService().getUser(activity.teacherId),
-                      builder: (context, snapshot) {
-                        String teacherName = 'Unknown';
-                        if (snapshot.hasData && snapshot.data != null) {
-                          teacherName =
-                              snapshot.data!.name ??
-                              snapshot.data!.email.split('@')[0];
-                        }
-                        return Text(
-                          'Teacher: $teacherName',
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          activity.name,
+                          style: AppTypography.bodyText.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                            fontSize: 16,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          activity.description,
                           style: AppTypography.caption.copyWith(
                             color: Colors.grey,
+                            fontSize: 14,
                           ),
-                        );
-                      },
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        FutureBuilder<UserModel?>(
+                          future: FirestoreService().getUser(
+                            activity.teacherId,
+                          ),
+                          builder: (context, snapshot) {
+                            String teacherName = 'Unknown';
+                            if (snapshot.hasData && snapshot.data != null) {
+                              teacherName =
+                                  snapshot.data!.name ??
+                                  snapshot.data!.email.split('@')[0];
+                            }
+                            return Text(
+                              'Teacher: $teacherName',
+                              style: AppTypography.caption.copyWith(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (isAdmin) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.info, color: Colors.blue),
+                      onPressed: onViewDetails,
+                      tooltip: 'View Details',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.group_add, color: Colors.green),
+                      onPressed: onAssignStudents,
+                      tooltip: 'Assign Students',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blue),
+                      onPressed: onEdit,
+                      tooltip: 'Edit Activity',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: onDelete,
+                      tooltip: 'Delete Activity',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.list, color: Colors.blue),
+                      onPressed: onViewRegisters,
+                      tooltip: 'View Registers',
                     ),
                   ],
                 ),
-              ),
-              if (isAdmin) ...[
-                IconButton(
-                  icon: const Icon(Icons.info, color: Colors.blue),
-                  onPressed: onViewDetails,
-                  tooltip: 'View Details',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.group_add, color: Colors.green),
-                  onPressed: onAssignStudents,
-                  tooltip: 'Assign Students',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.blue),
-                  onPressed: onEdit,
-                  tooltip: 'Edit Activity',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: onDelete,
-                  tooltip: 'Delete Activity',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.list, color: Colors.blue),
-                  onPressed: onViewRegisters,
-                  tooltip: 'View Registers',
-                ),
               ] else if (isTeacher) ...[
-                IconButton(
-                  icon: const Icon(Icons.check_circle, color: Colors.green),
-                  onPressed: onMarkRegister,
-                  tooltip: 'Mark Register',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.list, color: Colors.blue),
-                  onPressed: onViewRegisters,
-                  tooltip: 'View Registers',
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.check_circle, color: Colors.green),
+                      onPressed: onMarkRegister,
+                      tooltip: 'Mark Register',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.list, color: Colors.blue),
+                      onPressed: onViewRegisters,
+                      tooltip: 'View Registers',
+                    ),
+                  ],
                 ),
               ],
             ],
@@ -1417,6 +1447,10 @@ class ActivityCard extends StatelessWidget {
     );
   }
 }
+
+// [Existing code remains unchanged until GenerateReportDialog class]
+
+// Replace the entire GenerateReportDialog class with the following:
 
 class GenerateReportDialog extends StatefulWidget {
   final List<Activity> activities;
@@ -1477,6 +1511,11 @@ class _GenerateReportDialogState extends State<GenerateReportDialog> {
                 query,
               );
               return nameMatch || classMatch;
+            }).toList();
+      } else if (_reportType == 'all_registers') {
+        _filteredItems =
+            widget.activities.where((activity) {
+              return activity.name.toLowerCase().contains(query);
             }).toList();
       }
     });
@@ -1614,6 +1653,20 @@ class _GenerateReportDialogState extends State<GenerateReportDialog> {
                       value: 'student',
                       child: Text('By Student', style: AppTypography.bodyText),
                     ),
+                    DropdownMenuItem(
+                      value: 'all_registers',
+                      child: Text(
+                        'All Registers',
+                        style: AppTypography.bodyText,
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'single_register',
+                      child: Text(
+                        'Single Register',
+                        style: AppTypography.bodyText,
+                      ),
+                    ),
                   ],
                   onChanged: (value) async {
                     setState(() {
@@ -1627,11 +1680,13 @@ class _GenerateReportDialogState extends State<GenerateReportDialog> {
                       await _loadTeachers();
                     } else if (value == 'student') {
                       await _loadStudents();
+                    } else if (value == 'single_register') {
+                      await _loadStudents();
                     }
                   },
                 ),
                 const SizedBox(height: 12),
-                if (_reportType != 'all')
+                if (_reportType != 'all' && _reportType != 'all_registers')
                   TextFormField(
                     controller: _searchController,
                     decoration: InputDecoration(
@@ -1640,6 +1695,8 @@ class _GenerateReportDialogState extends State<GenerateReportDialog> {
                               ? 'Search Activity'
                               : _reportType == 'teacher'
                               ? 'Search Teacher by Email'
+                              : _reportType == 'student'
+                              ? 'Search Student'
                               : 'Search Student',
                       labelStyle: AppTypography.bodyText.copyWith(
                         color: Colors.grey,
@@ -1665,7 +1722,9 @@ class _GenerateReportDialogState extends State<GenerateReportDialog> {
                       style: AppTypography.bodyText.copyWith(color: Colors.red),
                     ),
                   ),
-                if (_reportType != 'all' && !_isLoading)
+                if (_reportType != 'all' &&
+                    _reportType != 'all_registers' &&
+                    !_isLoading)
                   Container(
                     constraints: const BoxConstraints(maxHeight: 150),
                     child: ListView.builder(
@@ -1673,8 +1732,9 @@ class _GenerateReportDialogState extends State<GenerateReportDialog> {
                       itemCount: _filteredItems.length,
                       itemBuilder: (context, index) {
                         final item = _filteredItems[index];
-                        String title, subtitle;
-                        String id;
+                        String title = '';
+                        String subtitle = '';
+                        String id = '';
                         if (_reportType == 'single') {
                           title = (item as Activity).name;
                           subtitle = item.description;
@@ -1683,7 +1743,8 @@ class _GenerateReportDialogState extends State<GenerateReportDialog> {
                           title = (item as UserModel).email;
                           subtitle = item.name ?? 'No name';
                           id = item.uid;
-                        } else {
+                        } else if (_reportType == 'student' ||
+                            _reportType == 'single_register') {
                           title = (item as Student).name;
                           subtitle = item.className;
                           id = item.id;
@@ -1724,7 +1785,12 @@ class _GenerateReportDialogState extends State<GenerateReportDialog> {
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap:
-                          _selectedId == null && _reportType != 'all'
+                          (_selectedId == null &&
+                                      (_reportType == 'single' ||
+                                          _reportType == 'teacher' ||
+                                          _reportType == 'student' ||
+                                          _reportType == 'single_register')) ||
+                                  _isLoading
                               ? null
                               : () {
                                 widget.onGenerateReport(
@@ -1771,3 +1837,5 @@ class _GenerateReportDialogState extends State<GenerateReportDialog> {
     );
   }
 }
+
+// [Rest of the file remains unchanged]

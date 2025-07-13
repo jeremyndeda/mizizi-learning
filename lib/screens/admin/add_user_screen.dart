@@ -1080,67 +1080,78 @@ class UserCard extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                backgroundColor: const Color(0xFF4CAF50),
-                radius: 24,
-                child: Text(
-                  user.name != null && user.name!.isNotEmpty
-                      ? user.name!.substring(0, 1).toUpperCase()
-                      : user.email.substring(0, 1).toUpperCase(),
-                  style: AppTypography.bodyText.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      user.email,
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: const Color(0xFF4CAF50),
+                    radius: 24,
+                    child: Text(
+                      user.name != null && user.name!.isNotEmpty
+                          ? user.name!.substring(0, 1).toUpperCase()
+                          : user.email.substring(0, 1).toUpperCase(),
                       style: AppTypography.bodyText.copyWith(
+                        color: Colors.white,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                        fontSize: 15,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Name: ${user.name ?? 'N/A'} | Role: ${user.role.isNotEmpty ? '${user.role.substring(0, 1).toUpperCase()}${user.role.substring(1)}' : user.role}',
-                      style: AppTypography.caption.copyWith(
-                        color: Colors.grey[600],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user.email,
+                          style: AppTypography.bodyText.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                            fontSize: 15,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Name: ${user.name ?? 'N/A'} | Role: ${user.role.isNotEmpty ? '${user.role.substring(0, 1).toUpperCase()}${user.role.substring(1)}' : user.role}',
+                          style: AppTypography.caption.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.edit, color: Colors.blue, size: 24),
-                onPressed: onEdit,
-                tooltip: 'Edit User',
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.lock_reset,
-                  color: Colors.orange,
-                  size: 24,
-                ),
-                onPressed: onResetPassword,
-                tooltip: 'Reset Password',
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.delete,
-                  color: Color(0xFFE57373),
-                  size: 24,
-                ),
-                onPressed: onDelete,
-                tooltip: 'Delete User',
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.blue, size: 24),
+                    onPressed: onEdit,
+                    tooltip: 'Edit User',
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.lock_reset,
+                      color: Colors.orange,
+                      size: 24,
+                    ),
+                    onPressed: onResetPassword,
+                    tooltip: 'Reset Password',
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.delete,
+                      color: Color(0xFFE57373),
+                      size: 24,
+                    ),
+                    onPressed: onDelete,
+                    tooltip: 'Delete User',
+                  ),
+                ],
               ),
             ],
           ),
